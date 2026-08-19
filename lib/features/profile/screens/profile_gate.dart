@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/profile.dart';
+import '../../jobs/screens/customer_home_screen.dart';
+import '../../jobs/screens/technician_home_screen.dart';
 import '../profile_repository.dart';
-import 'customer_home_placeholder.dart';
 import 'role_select_screen.dart';
-import 'technician_home_placeholder.dart';
 
 /// Routes a signed-in user to profile setup (no profiles row yet) or to
 /// their role's home screen.
@@ -44,9 +44,9 @@ class _ProfileGateState extends State<ProfileGate> {
           return const RoleSelectScreen();
         }
         if (profile.isTechnician) {
-          return TechnicianHomePlaceholder(profile: profile);
+          return TechnicianHomeScreen(profile: profile);
         }
-        return CustomerHomePlaceholder(profile: profile);
+        return CustomerHomeScreen(profile: profile);
       },
     );
   }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase_client.dart';
 import '../../models/profile.dart';
+import '../../models/technician_details.dart';
 
 class ProfileRepository {
   Future<Profile?> fetchMyProfile() async {
@@ -12,6 +13,17 @@ class ProfileRepository {
         await supabase.from('profiles').select().eq('id', uid).maybeSingle();
     if (data == null) return null;
     return Profile.fromMap(data);
+  }
+
+  Future<TechnicianDetails?> fetchMyTechnicianDetails() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('technician_details')
+        .select()
+        .eq('profile_id', uid)
+        .maybeSingle();
+    if (data == null) return null;
+    return TechnicianDetails.fromMap(data);
   }
 
   Future<Profile> createProfile({

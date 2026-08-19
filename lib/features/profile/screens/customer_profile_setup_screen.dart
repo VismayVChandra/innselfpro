@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../jobs/screens/customer_home_screen.dart';
 import '../profile_repository.dart';
-import 'customer_home_placeholder.dart';
 
 class CustomerProfileSetupScreen extends StatefulWidget {
   const CustomerProfileSetupScreen({super.key});
@@ -41,7 +41,7 @@ class _CustomerProfileSetupScreenState
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => CustomerHomePlaceholder(profile: profile),
+          builder: (_) => CustomerHomeScreen(profile: profile),
         ),
       );
     } catch (e) {

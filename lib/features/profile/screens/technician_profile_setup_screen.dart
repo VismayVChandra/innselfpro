@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../jobs/screens/technician_home_screen.dart';
 import '../profile_repository.dart';
-import 'technician_home_placeholder.dart';
 
 class TechnicianProfileSetupScreen extends StatefulWidget {
   const TechnicianProfileSetupScreen({super.key});
@@ -76,7 +76,7 @@ class _TechnicianProfileSetupScreenState
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TechnicianHomePlaceholder(profile: profile),
+          builder: (_) => TechnicianHomeScreen(profile: profile),
         ),
       );
     } catch (e) {
