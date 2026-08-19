@@ -141,9 +141,17 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               isThreeLine: true,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-                              ),
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => JobDetailScreen(
+                                      initialJob: job,
+                                      viewerProfile: widget.profile,
+                                    ),
+                                  ),
+                                );
+                                _applyFilters();
+                              },
                             ),
                           );
                         },

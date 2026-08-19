@@ -99,9 +99,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     trailing: Chip(
                       label: Text(job.status.replaceAll('_', ' ')),
                     ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-                    ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => JobDetailScreen(
+                            initialJob: job,
+                            viewerProfile: widget.profile,
+                          ),
+                        ),
+                      );
+                      _refresh();
+                    },
                   ),
                 );
               },
