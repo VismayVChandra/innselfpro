@@ -1,0 +1,76 @@
+import 'dart:io';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase_client.dart';
+import '../../models/profile.dart';
+
+class ProfileRepository {
+  Future<Profile?> fetchMyProfile() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data =
+        await supabase.from('profiles').select().eq('id', uid).maybeSingle();
+    if (data == null) return null;
+    return Profile.fromMap(data);
+  }
+
+  Future<Profile> createProfile({
+    required String role,
+    required String fullName,
+    required String phone,
+    String? address,
+  }) async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('profiles')
+        .insert({
+          'id': uid,
+          'role': role,
+          'full_name': fullName,
+          'phone': phone,
+          'address': address,
+        })
+        .select()
+        .single();
+    return Profile.fromMap(data);
+  }
+
+  Future<void> upsertTechnicianDetails({
+    required String skills,
+    required String serviceArea,
+  }) async {
+    final uid = supabase.auth.currentUser!.id;
+    await supabase.from('technician_details').upsert({
+      'profile_id': uid,
+      'skills': skills,
+      'service_area': serviceArea,
+    });
+  }
+
+  Future<void> upsertTechnicianKyc({
+    required String idNumber,
+    required String documentPath,
+  }) async {
+    final uid = supabase.auth.currentUser!.id;
+    await supabase.from('technician_kyc').upsert({
+      'profile_id': uid,
+      'id_number': idNumber,
+      'id_document_url': documentPath,
+    });
+  }
+
+  /// Uploads to the private technician-kyc bucket under the user's own
+  /// folder (required by the storage RLS policy) and returns the storage
+  /// path -- not a public URL, since the bucket is private.
+  Future<String> uploadKycDocument(File file) async {
+    final uid = supabase.auth.currentUser!.id;
+    final ext = file.path.split('.').last;
+    final path = '$uid/kyc.$ext';
+    await supabase.storage.from('technician-kyc').upload(
+          path,
+          file,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return path;
+  }
+}
