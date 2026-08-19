@@ -27,7 +27,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _jobsFuture = _jobsRepository.fetchMyJobs());
+    setState(() {
+      _jobsFuture = _jobsRepository.fetchMyJobs();
+    });
     await _jobsFuture;
   }
 
@@ -61,6 +63,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         child: FutureBuilder<List<Job>>(
           future: _jobsFuture,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Could not load jobs: ${snapshot.error}'));
+            }
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }

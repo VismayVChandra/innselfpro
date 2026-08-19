@@ -171,6 +171,69 @@ create policy "technician_kyc_update_own" on technician_kyc
 create policy "categories_select_all" on categories
   for select using (auth.role() = 'authenticated');
 
+-- jobs and bids each need to check facts about the other table inside their
+-- RLS policies (e.g. "is this technician the one who bid on this job").
+-- Doing that with a plain EXISTS subquery makes Postgres re-evaluate the
+-- other table's RLS policies, which in turn subquery back into this table --
+-- an infinite loop (error 42P17). These SECURITY DEFINER functions run as
+-- the function owner (bypassing RLS) and expose only a narrow boolean/uuid
+-- answer, breaking the cycle.
+create or replace function public.technician_has_bid_on_job(p_job_id uuid, p_technician_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from bids
+    where job_id = p_job_id and technician_id = p_technician_id
+  );
+$$;
+
+create or replace function public.job_belongs_to_customer(p_job_id uuid, p_customer_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from jobs
+    where id = p_job_id and customer_id = p_customer_id
+  );
+$$;
+
+create or replace function public.job_is_open(p_job_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from jobs
+    where id = p_job_id and status = 'open'
+  );
+$$;
+
+create or replace function public.accepted_bid_technician(p_job_id uuid)
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select b.technician_id
+  from jobs j join bids b on b.id = j.accepted_bid_id
+  where j.id = p_job_id;
+$$;
+
+grant execute on function public.technician_has_bid_on_job(uuid, uuid) to authenticated;
+grant execute on function public.job_belongs_to_customer(uuid, uuid) to authenticated;
+grant execute on function public.job_is_open(uuid) to authenticated;
+grant execute on function public.accepted_bid_technician(uuid) to authenticated;
+
 -- jobs: customer sees their own jobs; technicians see open jobs plus any
 -- job they've bid on; customer can update their own job (accept bid);
 -- the technician on the accepted bid can advance status.
@@ -178,7 +241,7 @@ create policy "jobs_select" on jobs
   for select using (
     customer_id = auth.uid()
     or status = 'open'
-    or exists (select 1 from bids b where b.job_id = jobs.id and b.technician_id = auth.uid())
+    or public.technician_has_bid_on_job(id, auth.uid())
   );
 
 create policy "jobs_insert_customer" on jobs
@@ -191,33 +254,25 @@ create policy "jobs_update_owning_customer" on jobs
   for update using (customer_id = auth.uid());
 
 create policy "jobs_update_assigned_technician" on jobs
-  for update using (
-    exists (
-      select 1 from bids b
-      where b.id = jobs.accepted_bid_id
-      and b.technician_id = auth.uid()
-    )
-  );
+  for update using (public.accepted_bid_technician(id) = auth.uid());
 
 -- bids: technician sees their own bids; customer sees bids on their jobs;
 -- technician can bid on open jobs; only the owning customer can accept/reject.
 create policy "bids_select" on bids
   for select using (
     technician_id = auth.uid()
-    or exists (select 1 from jobs j where j.id = bids.job_id and j.customer_id = auth.uid())
+    or public.job_belongs_to_customer(job_id, auth.uid())
   );
 
 create policy "bids_insert_technician" on bids
   for insert with check (
     technician_id = auth.uid()
     and exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'technician')
-    and exists (select 1 from jobs j where j.id = bids.job_id and j.status = 'open')
+    and public.job_is_open(job_id)
   );
 
 create policy "bids_update_owning_customer" on bids
-  for update using (
-    exists (select 1 from jobs j where j.id = bids.job_id and j.customer_id = auth.uid())
-  );
+  for update using (public.job_belongs_to_customer(job_id, auth.uid()));
 
 -- payments: read-only for the two parties involved. All writes happen via
 -- an Edge Function using the service role (Razorpay order creation + the
@@ -250,21 +305,15 @@ create policy "notifications_update_own" on notifications
 create policy "disputes_select" on disputes
   for select using (
     flagged_by = auth.uid()
-    or exists (select 1 from jobs j where j.id = disputes.job_id and j.customer_id = auth.uid())
-    or exists (
-      select 1 from jobs j join bids b on b.id = j.accepted_bid_id
-      where j.id = disputes.job_id and b.technician_id = auth.uid()
-    )
+    or public.job_belongs_to_customer(job_id, auth.uid())
+    or public.accepted_bid_technician(job_id) = auth.uid()
   );
 
 create policy "disputes_insert" on disputes
   for insert with check (
     flagged_by = auth.uid()
     and (
-      exists (select 1 from jobs j where j.id = disputes.job_id and j.customer_id = auth.uid())
-      or exists (
-        select 1 from jobs j join bids b on b.id = j.accepted_bid_id
-        where j.id = disputes.job_id and b.technician_id = auth.uid()
-      )
+      public.job_belongs_to_customer(job_id, auth.uid())
+      or public.accepted_bid_technician(job_id) = auth.uid()
     )
   );

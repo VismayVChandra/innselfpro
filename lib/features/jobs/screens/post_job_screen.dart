@@ -88,6 +88,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 FutureBuilder<List<Category>>(
                   future: _categoriesFuture,
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Text('Could not load categories: ${snapshot.error}');
+                    }
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }

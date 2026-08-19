@@ -117,6 +117,9 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                   child: FutureBuilder<List<Job>>(
                     future: _feedFuture,
                     builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Could not load feed: ${snapshot.error}'));
+                      }
                       if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
