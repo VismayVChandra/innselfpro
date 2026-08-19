@@ -7,6 +7,7 @@ import '../../auth/auth_repository.dart';
 import '../../profile/profile_repository.dart';
 import '../jobs_repository.dart';
 import 'job_detail_screen.dart';
+import 'technician_accepted_jobs_screen.dart';
 
 class TechnicianHomeScreen extends StatefulWidget {
   const TechnicianHomeScreen({super.key, required this.profile});
@@ -68,6 +69,15 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
       appBar: AppBar(
         title: const Text('Job Feed'),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TechnicianAcceptedJobsScreen(profile: widget.profile),
+              ),
+            ),
+            icon: const Icon(Icons.work_outline),
+            tooltip: 'My Jobs',
+          ),
           IconButton(
             onPressed: () => AuthRepository().signOut(),
             icon: const Icon(Icons.logout),

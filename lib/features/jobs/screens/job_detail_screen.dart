@@ -31,6 +31,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<Bid?>? _myBidFuture;
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
+  bool _isUpdatingStatus = false;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -86,6 +87,36 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSubmittingBid = false);
+    }
+  }
+
+  Future<void> _startJob() async {
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await _jobsRepository.startJob(_job.id);
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start job: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  Future<void> _completeJob() async {
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await _jobsRepository.completeJob(_job.id);
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not mark job completed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
     }
   }
 
@@ -153,9 +184,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Widget _buildTechnicianSection() {
-    if (_job.status != 'open') {
-      return const SizedBox.shrink();
-    }
     return FutureBuilder<Bid?>(
       future: _myBidFuture,
       builder: (context, snapshot) {
@@ -163,49 +191,96 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         final myBid = snapshot.data;
-        if (myBid != null) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('You bid ₹${myBid.amount.toStringAsFixed(0)} - ${myBid.status}'),
-            ),
+
+        if (_job.status == 'open') {
+          if (myBid != null) {
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('You bid ₹${myBid.amount.toStringAsFixed(0)} - ${myBid.status}'),
+              ),
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Submit a bid', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Your price (₹)'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(labelText: 'Note (optional)'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _isSubmittingBid ? null : _submitBid,
+                child: _isSubmittingBid
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Submit bid'),
+              ),
+            ],
           );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Submit a bid', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Your price (₹)'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _noteController,
-              decoration: const InputDecoration(labelText: 'Note (optional)'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _isSubmittingBid ? null : _submitBid,
-              child: _isSubmittingBid
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Submit bid'),
-            ),
-          ],
-        );
+
+        // Job is no longer open. Only the technician whose bid was
+        // accepted has anything to do here.
+        if (myBid == null || myBid.status != 'accepted') {
+          return const SizedBox.shrink();
+        }
+
+        if (_job.status == 'bid_accepted') {
+          return FilledButton(
+            onPressed: _isUpdatingStatus ? null : _startJob,
+            child: _isUpdatingStatus
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Start job'),
+          );
+        }
+        if (_job.status == 'in_progress') {
+          return FilledButton(
+            onPressed: _isUpdatingStatus ? null : _completeJob,
+            child: _isUpdatingStatus
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Mark completed'),
+          );
+        }
+        if (_job.status == 'completed') {
+          return const Text('You completed this job.');
+        }
+        return const SizedBox.shrink();
       },
     );
   }
 
   Widget _buildCustomerSection() {
     if (_job.status != 'open') {
+      if (_job.status == 'bid_accepted') {
+        return const Text('A technician has been assigned and will begin work soon.');
+      }
+      if (_job.status == 'in_progress') {
+        return const Text('Your technician is currently working on this job.');
+      }
+      if (_job.status == 'completed') {
+        return const Text('This job is complete.');
+      }
       return const SizedBox.shrink();
     }
     return FutureBuilder<List<Bid>>(

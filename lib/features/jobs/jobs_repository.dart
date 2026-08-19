@@ -73,4 +73,34 @@ class JobsRepository {
         await supabase.from('jobs').select(_jobSelect).eq('id', id).single();
     return Job.fromMap(data);
   }
+
+  /// Jobs this technician won the bid on -- these drop out of the open
+  /// feed once accepted, so they need their own list to stay reachable.
+  Future<List<Job>> fetchMyAcceptedJobs() async {
+    final uid = supabase.auth.currentUser!.id;
+    final bidRows = await supabase
+        .from('bids')
+        .select('job_id')
+        .eq('technician_id', uid)
+        .eq('status', 'accepted');
+    final jobIds =
+        (bidRows as List).map((e) => e['job_id'] as String).toList();
+    if (jobIds.isEmpty) return [];
+    final data = await supabase
+        .from('jobs')
+        .select(_jobSelect)
+        .inFilter('id', jobIds)
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((e) => Job.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> startJob(String jobId) async {
+    await supabase.from('jobs').update({'status': 'in_progress'}).eq('id', jobId);
+  }
+
+  Future<void> completeJob(String jobId) async {
+    await supabase.from('jobs').update({'status': 'completed'}).eq('id', jobId);
+  }
 }
