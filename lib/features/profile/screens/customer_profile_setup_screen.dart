@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../jobs/screens/customer_home_screen.dart';
+import '../../../models/profile.dart';
 import '../profile_repository.dart';
 
 class CustomerProfileSetupScreen extends StatefulWidget {
-  const CustomerProfileSetupScreen({super.key});
+  const CustomerProfileSetupScreen({super.key, required this.onProfileCreated});
+
+  final ValueChanged<Profile> onProfileCreated;
 
   @override
   State<CustomerProfileSetupScreen> createState() =>
@@ -39,11 +41,8 @@ class _CustomerProfileSetupScreenState
         address: _addressController.text.trim(),
       );
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CustomerHomeScreen(profile: profile),
-        ),
-      );
+      widget.onProfileCreated(profile);
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

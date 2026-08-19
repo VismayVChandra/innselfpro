@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/profile.dart';
 import 'customer_profile_setup_screen.dart';
 import 'technician_profile_setup_screen.dart';
 
 /// Shown once, right after signup, before a profiles row exists.
 class RoleSelectScreen extends StatelessWidget {
-  const RoleSelectScreen({super.key});
+  const RoleSelectScreen({super.key, required this.onProfileCreated});
+
+  final ValueChanged<Profile> onProfileCreated;
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +28,11 @@ class RoleSelectScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 FilledButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(
+                  onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const CustomerProfileSetupScreen(),
+                      builder: (_) => CustomerProfileSetupScreen(
+                        onProfileCreated: onProfileCreated,
+                      ),
                     ),
                   ),
                   child: const Padding(
@@ -37,9 +42,11 @@ class RoleSelectScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(
+                  onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const TechnicianProfileSetupScreen(),
+                      builder: (_) => TechnicianProfileSetupScreen(
+                        onProfileCreated: onProfileCreated,
+                      ),
                     ),
                   ),
                   child: const Padding(

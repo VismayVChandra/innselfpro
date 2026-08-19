@@ -39,10 +39,11 @@ class _SignupScreenState extends State<SignupScreen> {
             content: Text('Check your email to confirm your account, then log in.'),
           ),
         );
-        Navigator.of(context).pop();
       }
-      // If a session came back immediately (email confirmation disabled),
-      // the AuthGate's session stream takes over automatically.
+      // Pop back to reveal AuthGate either way -- if a session came back
+      // immediately, its auth-state stream has already updated and it will
+      // show ProfileGate as soon as this screen is off the stack.
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

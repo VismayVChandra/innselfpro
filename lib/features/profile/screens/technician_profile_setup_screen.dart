@@ -3,11 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../jobs/screens/technician_home_screen.dart';
+import '../../../models/profile.dart';
 import '../profile_repository.dart';
 
 class TechnicianProfileSetupScreen extends StatefulWidget {
-  const TechnicianProfileSetupScreen({super.key});
+  const TechnicianProfileSetupScreen({super.key, required this.onProfileCreated});
+
+  final ValueChanged<Profile> onProfileCreated;
 
   @override
   State<TechnicianProfileSetupScreen> createState() =>
@@ -74,11 +76,8 @@ class _TechnicianProfileSetupScreenState
         documentPath: documentPath,
       );
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TechnicianHomeScreen(profile: profile),
-        ),
-      );
+      widget.onProfileCreated(profile);
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

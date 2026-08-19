@@ -7,7 +7,10 @@ import '../profile_repository.dart';
 import 'role_select_screen.dart';
 
 /// Routes a signed-in user to profile setup (no profiles row yet) or to
-/// their role's home screen.
+/// their role's home screen. Deliberately state-driven rather than
+/// Navigator-driven: everything here renders within AuthGate's single
+/// route, so signing out (which AuthGate reacts to) always works no
+/// matter how deep into this state machine the user is.
 class ProfileGate extends StatefulWidget {
   const ProfileGate({super.key});
 
@@ -16,38 +19,54 @@ class ProfileGate extends StatefulWidget {
 }
 
 class _ProfileGateState extends State<ProfileGate> {
-  late final Future<Profile?> _profileFuture;
+  bool _loading = true;
+  Object? _error;
+  Profile? _profile;
 
   @override
   void initState() {
     super.initState();
-    _profileFuture = ProfileRepository().fetchMyProfile();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final profile = await ProfileRepository().fetchMyProfile();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  void _onProfileCreated(Profile profile) {
+    setState(() => _profile = profile);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Profile?>(
-      future: _profileFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(child: Text('Error loading profile: ${snapshot.error}')),
-          );
-        }
-        final profile = snapshot.data;
-        if (profile == null) {
-          return const RoleSelectScreen();
-        }
-        if (profile.isTechnician) {
-          return TechnicianHomeScreen(profile: profile);
-        }
-        return CustomerHomeScreen(profile: profile);
-      },
-    );
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_error != null) {
+      return Scaffold(
+        body: Center(child: Text('Error loading profile: $_error')),
+      );
+    }
+    final profile = _profile;
+    if (profile == null) {
+      return RoleSelectScreen(onProfileCreated: _onProfileCreated);
+    }
+    if (profile.isTechnician) {
+      return TechnicianHomeScreen(profile: profile);
+    }
+    return CustomerHomeScreen(profile: profile);
   }
 }
