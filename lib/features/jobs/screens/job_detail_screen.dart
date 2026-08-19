@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../models/bid.dart';
 import '../../../models/job.dart';
+import '../../../models/payment.dart';
 import '../../../models/profile.dart';
 import '../../bids/bids_repository.dart';
+import '../../payments/payment_service.dart';
+import '../../payments/payments_repository.dart';
 import '../jobs_repository.dart';
 
 class JobDetailScreen extends StatefulWidget {
@@ -23,15 +26,20 @@ class JobDetailScreen extends StatefulWidget {
 class _JobDetailScreenState extends State<JobDetailScreen> {
   final _jobsRepository = JobsRepository();
   final _bidsRepository = BidsRepository();
+  final _paymentsRepository = PaymentsRepository();
+  final _paymentService = PaymentService();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
 
   late Job _job;
   Future<List<Bid>>? _bidsFuture;
   Future<Bid?>? _myBidFuture;
+  Future<Payment?>? _paymentFuture;
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
   bool _isUpdatingStatus = false;
+  bool _isStartingPayment = false;
+  bool _isConfirmingPayment = false;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -43,6 +51,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _job = widget.initialJob;
     if (_isOwningCustomer) {
       _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
+      if (_job.status == 'completed') {
+        _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
+      }
     } else if (_isTechnician) {
       _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
     }
@@ -52,6 +63,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _paymentService.dispose();
     super.dispose();
   }
 
@@ -87,6 +99,46 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSubmittingBid = false);
+    }
+  }
+
+  Future<void> _startPayment() async {
+    setState(() => _isStartingPayment = true);
+    try {
+      final order = await _paymentsRepository.createOrder(_job.id);
+      _paymentService.open(
+        keyId: order['keyId'] as String,
+        orderId: order['orderId'] as String,
+        amountInPaise: order['amount'] as int,
+        description: _job.categoryName,
+        onSuccess: () async {
+          if (!mounted) return;
+          setState(() {
+            _isStartingPayment = false;
+            _isConfirmingPayment = true;
+          });
+          // Give the Razorpay webhook a moment to land before re-checking.
+          await Future.delayed(const Duration(seconds: 2));
+          if (!mounted) return;
+          setState(() {
+            _isConfirmingPayment = false;
+            _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
+          });
+        },
+        onError: (message) {
+          if (!mounted) return;
+          setState(() => _isStartingPayment = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Payment failed: $message')),
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isStartingPayment = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start payment: $e')),
+      );
     }
   }
 
@@ -279,7 +331,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return const Text('Your technician is currently working on this job.');
       }
       if (_job.status == 'completed') {
-        return const Text('This job is complete.');
+        return _buildPaymentSection();
       }
       return const SizedBox.shrink();
     }
@@ -316,6 +368,54 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   ),
                 ),
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentSection() {
+    if (_isConfirmingPayment) {
+      return const Row(
+        children: [
+          SizedBox(
+            height: 16,
+            width: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Text('Confirming payment...'),
+        ],
+      );
+    }
+    return FutureBuilder<Payment?>(
+      future: _paymentFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Could not load payment status: ${snapshot.error}');
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final payment = snapshot.data;
+        if (payment?.status == 'paid') {
+          return Text('Paid ₹${payment!.amount.toStringAsFixed(0)}.');
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('This job is complete. Pay to close it out.'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _isStartingPayment ? null : _startPayment,
+              child: _isStartingPayment
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Pay now'),
             ),
           ],
         );
