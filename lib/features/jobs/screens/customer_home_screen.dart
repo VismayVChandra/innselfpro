@@ -254,7 +254,7 @@ class _HomeBody extends StatelessWidget {
         data.jobs.where((j) => JobStatusInfo.isActive(j.status)).firstOrNull;
     final openJob = data.jobs.where((j) => j.status == 'open').firstOrNull;
     final activeCount = data.jobs
-        .where((j) => j.status != 'completed')
+        .where((j) => j.status != 'completed' && j.status != 'cancelled')
         .length;
 
     return Column(

@@ -30,15 +30,50 @@ class BidsRepository {
     return Bid.fromMap(data);
   }
 
+  /// Bids on a job, each carrying the bidding technician's rating so the
+  /// customer can weigh price against reputation without a second screen.
   Future<List<Bid>> fetchBidsForJob(String jobId) async {
     final data = await supabase
         .from('bids')
         .select(_bidSelect)
         .eq('job_id', jobId)
         .order('amount', ascending: true);
-    return (data as List)
+    final bids = (data as List)
         .map((e) => Bid.fromMap(e as Map<String, dynamic>))
         .toList();
+    final ratings = await fetchTechnicianRatings(
+      bids.map((b) => b.technicianId).toSet().toList(),
+    );
+    return bids.map((bid) {
+      final rating = ratings[bid.technicianId];
+      return bid.withRating(
+        rating: rating?.average,
+        reviewCount: rating?.count ?? 0,
+      );
+    }).toList();
+  }
+
+  /// Average rating and review count per technician, in one round trip.
+  Future<Map<String, ({double average, int count})>> fetchTechnicianRatings(
+    List<String> technicianIds,
+  ) async {
+    if (technicianIds.isEmpty) return {};
+    final rows = await supabase
+        .from('reviews')
+        .select('technician_id, rating')
+        .inFilter('technician_id', technicianIds);
+    final byTechnician = <String, List<int>>{};
+    for (final row in rows as List) {
+      final map = row as Map<String, dynamic>;
+      final technicianId = map['technician_id'] as String;
+      byTechnician.putIfAbsent(technicianId, () => []).add(map['rating'] as int);
+    }
+    return byTechnician.map(
+      (technicianId, ratings) => MapEntry(technicianId, (
+        average: ratings.reduce((a, b) => a + b) / ratings.length,
+        count: ratings.length,
+      )),
+    );
   }
 
   /// How many bids each of these jobs has attracted, in one round trip.
@@ -77,5 +112,12 @@ class BidsRepository {
         .update({'status': 'rejected'})
         .eq('job_id', jobId)
         .neq('id', bidId);
+  }
+
+  /// Deletes a still-pending bid. Only valid while the job is still open --
+  /// enforced both here client-side (button only shown then) and by the
+  /// bids_delete_own_pending RLS policy from migration 005.
+  Future<void> withdrawBid(String bidId) async {
+    await supabase.from('bids').delete().eq('id', bidId);
   }
 }

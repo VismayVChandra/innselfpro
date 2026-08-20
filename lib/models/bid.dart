@@ -8,6 +8,12 @@ class Bid {
   final String status;
   final DateTime createdAt;
 
+  /// Attached after the initial fetch, from a separate reviews query --
+  /// null until BidsRepository fills it in, distinct from "no reviews yet"
+  /// (technicianReviewCount == 0).
+  final double? technicianRating;
+  final int technicianReviewCount;
+
   const Bid({
     required this.id,
     required this.jobId,
@@ -17,6 +23,8 @@ class Bid {
     this.note,
     required this.status,
     required this.createdAt,
+    this.technicianRating,
+    this.technicianReviewCount = 0,
   });
 
   factory Bid.fromMap(Map<String, dynamic> map) => Bid(
@@ -30,5 +38,18 @@ class Bid {
         note: map['note'] as String?,
         status: map['status'] as String,
         createdAt: DateTime.parse(map['created_at'] as String),
+      );
+
+  Bid withRating({required double? rating, required int reviewCount}) => Bid(
+        id: id,
+        jobId: jobId,
+        technicianId: technicianId,
+        technicianName: technicianName,
+        amount: amount,
+        note: note,
+        status: status,
+        createdAt: createdAt,
+        technicianRating: rating,
+        technicianReviewCount: reviewCount,
       );
 }

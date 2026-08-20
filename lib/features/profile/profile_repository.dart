@@ -15,6 +15,18 @@ class ProfileRepository {
     return Profile.fromMap(data);
   }
 
+  /// Looks up any user's basic profile (name + phone) by id. Safe under
+  /// the current RLS -- profiles_select_all already allows any
+  /// authenticated user to read any profile row -- used to surface a
+  /// technician's or customer's contact details once they're matched on
+  /// a job.
+  Future<Profile?> fetchProfileById(String id) async {
+    final data =
+        await supabase.from('profiles').select().eq('id', id).maybeSingle();
+    if (data == null) return null;
+    return Profile.fromMap(data);
+  }
+
   Future<TechnicianDetails?> fetchMyTechnicianDetails() async {
     final uid = supabase.auth.currentUser!.id;
     final data = await supabase

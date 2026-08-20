@@ -60,6 +60,14 @@ class JobStatusInfo {
     step: 3,
   );
 
+  static const _cancelled = JobStatusInfo(
+    customerLabel: 'Cancelled',
+    technicianLabel: 'Cancelled',
+    progress: 0,
+    color: AppColors.mutedForeground,
+    step: 0,
+  );
+
   static const _unknown = JobStatusInfo(
     customerLabel: 'Unknown',
     technicianLabel: 'Unknown',
@@ -73,6 +81,7 @@ class JobStatusInfo {
         'bid_accepted' => _bidAccepted,
         'in_progress' => _inProgress,
         'completed' => _completed,
+        'cancelled' => _cancelled,
         _ => _unknown,
       };
 
@@ -87,4 +96,9 @@ class JobStatusInfo {
   /// Is this job still moving?
   static bool isActive(String status) =>
       status == 'bid_accepted' || status == 'in_progress';
+
+  /// Does the four-step tracker make sense for this status? Not for
+  /// 'open' (nothing assigned yet) or 'cancelled' (nothing to track).
+  static bool showsTimeline(String status) =>
+      status == 'bid_accepted' || status == 'in_progress' || status == 'completed';
 }

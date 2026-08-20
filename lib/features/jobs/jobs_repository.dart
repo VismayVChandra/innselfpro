@@ -103,4 +103,10 @@ class JobsRepository {
   Future<void> completeJob(String jobId) async {
     await supabase.from('jobs').update({'status': 'completed'}).eq('id', jobId);
   }
+
+  /// Cancels a job while it's still open, before any bid is accepted.
+  /// Requires migration 005 (adds 'cancelled' to the status CHECK).
+  Future<void> cancelJob(String jobId) async {
+    await supabase.from('jobs').update({'status': 'cancelled'}).eq('id', jobId);
+  }
 }

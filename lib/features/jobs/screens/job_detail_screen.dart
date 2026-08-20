@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
@@ -17,6 +18,7 @@ import '../../bids/bids_repository.dart';
 import '../../disputes/disputes_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
+import '../../profile/profile_repository.dart';
 import '../../reviews/reviews_repository.dart';
 import '../job_status.dart';
 import '../jobs_repository.dart';
@@ -42,6 +44,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _paymentService = PaymentService();
   final _reviewsRepository = ReviewsRepository();
   final _disputesRepository = DisputesRepository();
+  final _profileRepository = ProfileRepository();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _reviewCommentController = TextEditingController();
@@ -52,6 +55,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<Payment?>? _paymentFuture;
   Future<Review?>? _reviewFuture;
   Future<Dispute?>? _disputeFuture;
+
+  /// The other party's contact card once a bid is accepted -- the
+  /// technician for a customer, the customer for the winning technician.
+  /// Set in initState for the customer (their own job, always safe); set
+  /// lazily inside the technician branch only after confirming their bid
+  /// is the accepted one, so a technician whose bid lost never sees the
+  /// customer's number.
+  Future<Profile?>? _contactFuture;
+
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
   bool _isUpdatingStatus = false;
@@ -60,6 +72,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   int _selectedRating = 0;
   bool _isSubmittingReview = false;
   bool _isFlagging = false;
+  bool _isCancelling = false;
+  bool _isWithdrawingBid = false;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -77,6 +91,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
       if (_job.status != 'open') {
         _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
+      }
+      if (_job.acceptedBidId != null) {
+        _contactFuture = _loadTechnicianContact();
       }
     } else if (_isTechnician) {
       _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
@@ -99,6 +116,87 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final updated = await _jobsRepository.fetchJobById(_job.id);
     if (!mounted) return;
     setState(() => _job = updated);
+  }
+
+  Future<Profile?> _loadTechnicianContact() async {
+    final technicianId =
+        await _bidsRepository.fetchTechnicianIdForBid(_job.acceptedBidId!);
+    return _profileRepository.fetchProfileById(technicianId);
+  }
+
+  Future<void> _cancelJob() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel this request?'),
+        content: const Text(
+          'Technicians who already bid will no longer be able to help with this job. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep request'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _isCancelling = true);
+    try {
+      await _jobsRepository.cancelJob(_job.id);
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not cancel job: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
+  Future<void> _withdrawBid(String bidId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw your bid?'),
+        content: const Text(
+          'You can submit a new bid later if the job is still open.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep bid'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Withdraw'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _isWithdrawingBid = true);
+    try {
+      await _bidsRepository.withdrawBid(bidId);
+      if (!mounted) return;
+      setState(() {
+        _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not withdraw bid: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isWithdrawingBid = false);
+    }
   }
 
   Future<void> _submitBid() async {
@@ -269,6 +367,32 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
+  Future<void> _confirmAndAcceptBid(Bid bid) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Choose this technician?'),
+        content: Text(
+          '${bid.technicianName.isEmpty ? 'This technician' : bid.technicianName} '
+          'will be assigned at ${formatRupees(bid.amount)}. Every other bid on '
+          'this job will be rejected, and this cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _acceptBid(bid);
+  }
+
   Future<void> _acceptBid(Bid bid) async {
     setState(() => _acceptingBidId = bid.id);
     try {
@@ -278,6 +402,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       setState(() {
         _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
         _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
+        _contactFuture = _loadTechnicianContact();
       });
     } catch (e) {
       if (!mounted) return;
@@ -303,7 +428,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 title: _job.categoryName,
               ),
               _StatusPanel(job: _job, forTechnician: _isTechnician),
-              if (_job.status != 'open') ...[
+              if (JobStatusInfo.showsTimeline(_job.status)) ...[
                 const SizedBox(height: 13),
                 _TimelineCard(step: JobStatusInfo.of(_job.status).step),
               ],
@@ -337,34 +462,47 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           if (myBid != null) {
             return Padding(
               padding: const EdgeInsets.only(top: 13),
-              child: AppCard(
-                radius: 21,
-                padding: const EdgeInsets.all(17),
-                child: Row(
-                  children: [
-                    const SoftIcon(
-                      Icons.check_circle_outline,
-                      background: AppColors.successSurface,
-                      foreground: AppColors.success,
-                      size: 42,
-                      iconSize: 21,
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Your bid is in', style: AppText.cardTitleLarge),
-                          const SizedBox(height: 4),
-                          Text(
-                            'You quoted ${formatRupees(myBid.amount)}  ·  ${humanizeStatus(myBid.status)}',
-                            style: AppText.bodyMuted,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppCard(
+                    radius: 21,
+                    padding: const EdgeInsets.all(17),
+                    child: Row(
+                      children: [
+                        const SoftIcon(
+                          Icons.check_circle_outline,
+                          background: AppColors.successSurface,
+                          foreground: AppColors.success,
+                          size: 42,
+                          iconSize: 21,
+                        ),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Your bid is in', style: AppText.cardTitleLarge),
+                              const SizedBox(height: 4),
+                              Text(
+                                'You quoted ${formatRupees(myBid.amount)}  ·  ${humanizeStatus(myBid.status)}',
+                                style: AppText.bodyMuted,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 13),
+                  OutlineButton(
+                    label: 'Withdraw bid',
+                    icon: Icons.undo_rounded,
+                    color: AppColors.destructive,
+                    isLoading: _isWithdrawingBid,
+                    onPressed: () => _withdrawBid(myBid.id),
+                  ),
+                ],
               ),
             );
           }
@@ -406,17 +544,25 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         // Job is no longer open. Only the technician whose bid was
         // accepted has anything to do here.
         if (myBid == null || myBid.status != 'accepted') {
+          final cancelled = _job.status == 'cancelled';
           return Padding(
             padding: const EdgeInsets.only(top: 13),
             child: EmptyStateCard(
-              icon: Icons.lock_outline_rounded,
-              title: 'This job is closed',
-              message: myBid == null
-                  ? 'It was assigned before you placed a bid.'
-                  : 'The customer chose a different technician this time.',
+              icon: cancelled ? Icons.block_outlined : Icons.lock_outline_rounded,
+              title: cancelled ? 'Request cancelled' : 'This job is closed',
+              message: cancelled
+                  ? 'The customer cancelled this request before choosing a technician.'
+                  : myBid == null
+                      ? 'It was assigned before you placed a bid.'
+                      : 'The customer chose a different technician this time.',
             ),
           );
         }
+
+        // From here on myBid.status == 'accepted' is confirmed, so it's
+        // safe to load the customer's contact details for this job --
+        // memoized so it isn't re-fetched on every rebuild.
+        _contactFuture ??= _profileRepository.fetchProfileById(_job.customerId);
 
         Widget? action;
         if (_job.status == 'bid_accepted') {
@@ -436,6 +582,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            FutureBuilder<Profile?>(
+              future: _contactFuture,
+              builder: (context, contactSnapshot) {
+                final contact = contactSnapshot.data;
+                if (contact == null) return const SizedBox.shrink();
+                return _ContactCard(label: 'Your customer', profile: contact);
+              },
+            ),
             Padding(
               padding: const EdgeInsets.only(top: 13),
               child: AppCard(
@@ -489,34 +643,48 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Widget _buildCustomerSection() {
     if (_job.status != 'open') {
+      Widget? notice;
+      if (_job.status == 'bid_accepted') {
+        notice = _NoticeCard(
+          icon: Icons.engineering_outlined,
+          title: 'Your technician is assigned',
+          message: 'They will start the work shortly.',
+        );
+      } else if (_job.status == 'in_progress') {
+        notice = _NoticeCard(
+          icon: Icons.handyman_outlined,
+          background: const Color(0x1FF0644F),
+          foreground: AppColors.primary,
+          title: 'Work in progress',
+          message: 'Your technician is on the job right now.',
+        );
+      } else if (_job.status == 'cancelled') {
+        notice = _NoticeCard(
+          icon: Icons.block_outlined,
+          background: AppColors.muted,
+          foreground: AppColors.mutedForeground,
+          title: 'Request cancelled',
+          message: 'You cancelled this request before choosing a technician.',
+        );
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_job.status == 'bid_accepted')
-            Padding(
-              padding: const EdgeInsets.only(top: 13),
-              child: _NoticeCard(
-                icon: Icons.engineering_outlined,
-                title: 'Your technician is assigned',
-                message: 'They will start the work shortly.',
-              ),
-            )
-          else if (_job.status == 'in_progress')
-            Padding(
-              padding: const EdgeInsets.only(top: 13),
-              child: _NoticeCard(
-                icon: Icons.handyman_outlined,
-                background: Color(0x1FF0644F),
-                foreground: AppColors.primary,
-                title: 'Work in progress',
-                message: 'Your technician is on the job right now.',
-              ),
-            )
-          else if (_job.status == 'completed') ...[
+          if (_job.acceptedBidId != null)
+            FutureBuilder<Profile?>(
+              future: _contactFuture,
+              builder: (context, contactSnapshot) {
+                final contact = contactSnapshot.data;
+                if (contact == null) return const SizedBox.shrink();
+                return _ContactCard(label: 'Your technician', profile: contact);
+              },
+            ),
+          if (notice != null) Padding(padding: const EdgeInsets.only(top: 13), child: notice),
+          if (_job.status == 'completed') ...[
             _buildPaymentSection(),
             _buildReviewSection(),
           ],
-          _buildDisputeSection(),
+          if (_job.status != 'cancelled') _buildDisputeSection(),
         ],
       );
     }
@@ -531,37 +699,42 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return const LoadingView(height: 160);
         }
         final bids = snapshot.data!;
-        if (bids.isEmpty) {
-          return Column(
-            children: [
-              SectionHeading(title: 'Bids received', topPadding: 28),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (bids.isEmpty) ...[
+              const SectionHeading(title: 'Bids received', topPadding: 28),
               const EmptyView(
                 icon: Icons.hourglass_empty_rounded,
                 title: 'No bids yet',
                 message:
                     'Local technicians are seeing your request. We will notify you the moment one bids.',
               ),
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SectionHeading(
-              title:
-                  '${bids.length} technician${bids.length == 1 ? '' : 's'} interested',
-              actionLabel: 'Lowest first',
-              topPadding: 28,
-            ),
-            for (var i = 0; i < bids.length; i++)
-              _BidCard(
-                bid: bids[i],
-                isLowest: i == 0 && bids.length > 1,
-                isAccepting: _acceptingBidId == bids[i].id,
-                acceptDisabled: _acceptingBidId != null,
-                onAccept: () => _acceptBid(bids[i]),
+            ] else ...[
+              SectionHeading(
+                title:
+                    '${bids.length} technician${bids.length == 1 ? '' : 's'} interested',
+                actionLabel: 'Lowest first',
+                topPadding: 28,
               ),
-            const FootNote('Your address is shared once you choose a pro.'),
+              for (var i = 0; i < bids.length; i++)
+                _BidCard(
+                  bid: bids[i],
+                  isLowest: i == 0 && bids.length > 1,
+                  isAccepting: _acceptingBidId == bids[i].id,
+                  acceptDisabled: _acceptingBidId != null,
+                  onAccept: () => _confirmAndAcceptBid(bids[i]),
+                ),
+              const FootNote('Your address is shared once you choose a pro.'),
+            ],
+            const SizedBox(height: 20),
+            OutlineButton(
+              label: 'Cancel this request',
+              icon: Icons.close_rounded,
+              color: AppColors.destructive,
+              isLoading: _isCancelling,
+              onPressed: _cancelJob,
+            ),
           ],
         );
       },
@@ -760,12 +933,18 @@ class _StatusPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = JobStatusInfo.of(job.status);
     final isFinished = job.status == 'completed';
+    final isCancelled = job.status == 'cancelled';
     final label =
         forTechnician ? status.technicianLabel : status.customerLabel;
 
     return DarkPanel(
       padding: const EdgeInsets.all(20),
-      solidColor: isFinished ? AppColors.panelOnline : null,
+      showGlow: !isCancelled,
+      solidColor: isCancelled
+          ? AppColors.foreground.withValues(alpha: 0.55)
+          : isFinished
+              ? AppColors.panelOnline
+              : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -787,14 +966,18 @@ class _StatusPanel extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isFinished
+                        color: isFinished || isCancelled
                             ? AppColors.onPanelKicker
                             : AppColors.peach,
                       ),
                     ),
                     const SizedBox(width: 7),
                     Text(
-                      isFinished ? 'COMPLETED' : 'LIVE UPDATE',
+                      isCancelled
+                          ? 'CANCELLED'
+                          : isFinished
+                              ? 'COMPLETED'
+                              : 'LIVE UPDATE',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 8.5,
@@ -827,25 +1010,29 @@ class _StatusPanel extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            isFinished
-                ? 'Thanks for using InnSelf.'
-                : 'We will keep this updated as things move along.',
+            isCancelled
+                ? 'This request is no longer active.'
+                : isFinished
+                    ? 'Thanks for using InnSelf.'
+                    : 'We will keep this updated as things move along.',
             style: const TextStyle(
               color: AppColors.onPanelMuted,
               fontSize: 11.5,
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: status.progress / 100,
-              minHeight: 5,
-              backgroundColor: Colors.white.withValues(alpha: 0.16),
-              valueColor: const AlwaysStoppedAnimation(AppColors.peach),
+          if (!isCancelled) ...[
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: status.progress / 100,
+                minHeight: 5,
+                backgroundColor: Colors.white.withValues(alpha: 0.16),
+                valueColor: const AlwaysStoppedAnimation(AppColors.peach),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1159,6 +1346,94 @@ class _NoticeCard extends StatelessWidget {
   }
 }
 
+/// The other party's name, phone and a copy action, shown once a bid is
+/// accepted. Both roles reuse this -- only the label and the profile
+/// fetched differ.
+class _ContactCard extends StatelessWidget {
+  const _ContactCard({required this.label, required this.profile});
+
+  final String label;
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: AppCard(
+        radius: 21,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.secondary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                initialsOf(profile.fullName),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentForeground,
+                ),
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label.toUpperCase(), style: AppText.microLabel),
+                  const SizedBox(height: 4),
+                  Text(profile.fullName, style: AppText.cardTitleLarge),
+                  const SizedBox(height: 3),
+                  Text(profile.phone, style: AppText.bodyMuted),
+                ],
+              ),
+            ),
+            _ContactAction(
+              icon: Icons.copy_rounded,
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: profile.phone));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Phone number copied')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactAction extends StatelessWidget {
+  const _ContactAction({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.secondary,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 18, color: AppColors.accentForeground),
+        ),
+      ),
+    );
+  }
+}
+
 /// One technician's offer on an open job.
 class _BidCard extends StatelessWidget {
   const _BidCard({
@@ -1229,9 +1504,39 @@ class _BidCard extends StatelessWidget {
                               style: AppText.cardTitleLarge,
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Bid placed ${formatRelative(bid.createdAt)}',
-                              style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                            Row(
+                              children: [
+                                if (bid.technicianReviewCount > 0) ...[
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 13,
+                                    color: AppColors.star,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${bid.technicianRating!.toStringAsFixed(1)} '
+                                    '(${bid.technicianReviewCount})',
+                                    style: AppText.bodyMuted.copyWith(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.foreground,
+                                    ),
+                                  ),
+                                  Text(
+                                    '  ·  ',
+                                    style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                                  ),
+                                ] else ...[
+                                  Text(
+                                    'New on InnSelf  ·  ',
+                                    style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                                  ),
+                                ],
+                                Text(
+                                  'bid ${formatRelative(bid.createdAt)}',
+                                  style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                                ),
+                              ],
                             ),
                           ],
                         ),
