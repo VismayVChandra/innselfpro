@@ -395,7 +395,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         if (snapshot.hasError) {
           return Text('Could not load payment status: ${snapshot.error}');
         }
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
         final payment = snapshot.data;
