@@ -41,6 +41,12 @@ class BidsRepository {
         .toList();
   }
 
+  Future<String> fetchTechnicianIdForBid(String bidId) async {
+    final data =
+        await supabase.from('bids').select('technician_id').eq('id', bidId).single();
+    return data['technician_id'] as String;
+  }
+
   /// Accepts one bid on a job: marks the job bid_accepted, the chosen bid
   /// accepted, and every other pending bid on that job rejected.
   Future<void> acceptBid({required String jobId, required String bidId}) async {

@@ -4,9 +4,11 @@ import '../../../models/bid.dart';
 import '../../../models/job.dart';
 import '../../../models/payment.dart';
 import '../../../models/profile.dart';
+import '../../../models/review.dart';
 import '../../bids/bids_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
+import '../../reviews/reviews_repository.dart';
 import '../jobs_repository.dart';
 
 class JobDetailScreen extends StatefulWidget {
@@ -28,18 +30,23 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _bidsRepository = BidsRepository();
   final _paymentsRepository = PaymentsRepository();
   final _paymentService = PaymentService();
+  final _reviewsRepository = ReviewsRepository();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _reviewCommentController = TextEditingController();
 
   late Job _job;
   Future<List<Bid>>? _bidsFuture;
   Future<Bid?>? _myBidFuture;
   Future<Payment?>? _paymentFuture;
+  Future<Review?>? _reviewFuture;
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
   bool _isUpdatingStatus = false;
   bool _isStartingPayment = false;
   bool _isConfirmingPayment = false;
+  int _selectedRating = 0;
+  bool _isSubmittingReview = false;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -53,6 +60,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
       if (_job.status == 'completed') {
         _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
+        _reviewFuture = _reviewsRepository.fetchReviewForJob(_job.id);
       }
     } else if (_isTechnician) {
       _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
@@ -63,6 +71,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _reviewCommentController.dispose();
     _paymentService.dispose();
     super.dispose();
   }
@@ -169,6 +178,33 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  Future<void> _submitReview() async {
+    setState(() => _isSubmittingReview = true);
+    try {
+      final technicianId =
+          await _bidsRepository.fetchTechnicianIdForBid(_job.acceptedBidId!);
+      await _reviewsRepository.submitReview(
+        jobId: _job.id,
+        technicianId: technicianId,
+        rating: _selectedRating,
+        comment: _reviewCommentController.text.trim().isEmpty
+            ? null
+            : _reviewCommentController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _reviewFuture = _reviewsRepository.fetchReviewForJob(_job.id);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not submit review: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmittingReview = false);
     }
   }
 
@@ -331,7 +367,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return const Text('Your technician is currently working on this job.');
       }
       if (_job.status == 'completed') {
-        return _buildPaymentSection();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildPaymentSection(),
+            const SizedBox(height: 24),
+            _buildReviewSection(),
+          ],
+        );
       }
       return const SizedBox.shrink();
     }
@@ -420,6 +463,87 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildReviewSection() {
+    return FutureBuilder<Review?>(
+      future: _reviewFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Could not load review: ${snapshot.error}');
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final review = snapshot.data;
+        if (review != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Your review', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _buildStarRow(rating: review.rating),
+              if (review.comment != null && review.comment!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(review.comment!),
+              ],
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Rate this technician', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _buildStarRow(
+              rating: _selectedRating,
+              interactive: true,
+              onChanged: (r) => setState(() => _selectedRating = r),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reviewCommentController,
+              decoration: const InputDecoration(labelText: 'Comment (optional)'),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: (_isSubmittingReview || _selectedRating == 0) ? null : _submitReview,
+              child: _isSubmittingReview
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Submit review'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStarRow({
+    required int rating,
+    bool interactive = false,
+    ValueChanged<int>? onChanged,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (i) {
+        final icon = Icon(
+          i < rating ? Icons.star : Icons.star_border,
+          color: Colors.amber,
+        );
+        if (!interactive) return icon;
+        return IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: () => onChanged?.call(i + 1),
+          icon: icon,
+        );
+      }),
     );
   }
 }

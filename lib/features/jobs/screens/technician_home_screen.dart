@@ -5,6 +5,7 @@ import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
 import '../../profile/profile_repository.dart';
+import '../../reviews/screens/technician_ratings_screen.dart';
 import '../jobs_repository.dart';
 import 'job_detail_screen.dart';
 import 'technician_accepted_jobs_screen.dart';
@@ -77,6 +78,13 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
             ),
             icon: const Icon(Icons.work_outline),
             tooltip: 'My Jobs',
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TechnicianRatingsScreen()),
+            ),
+            icon: const Icon(Icons.star_outline),
+            tooltip: 'My Ratings',
           ),
           IconButton(
             onPressed: () => AuthRepository().signOut(),
