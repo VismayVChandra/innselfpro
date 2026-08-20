@@ -27,6 +27,7 @@ class JobsRepository {
     required String description,
     required String location,
     File? photo,
+    DateTime? scheduledFor,
   }) async {
     final uid = supabase.auth.currentUser!.id;
     String? photoUrl;
@@ -39,6 +40,7 @@ class JobsRepository {
       'description': description,
       'location': location,
       'photo_url': photoUrl,
+      'scheduled_for': scheduledFor?.toIso8601String(),
     });
   }
 

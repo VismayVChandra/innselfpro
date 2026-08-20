@@ -24,6 +24,7 @@ class CustomerShell extends StatefulWidget {
 class _CustomerShellState extends State<CustomerShell> {
   final _refreshSignal = RefreshSignal();
   int _index = 0;
+  late Profile _profile = widget.profile;
 
   @override
   void dispose() {
@@ -41,9 +42,12 @@ class _CustomerShellState extends State<CustomerShell> {
         body: IndexedStack(
           index: _index,
           children: [
-            CustomerHomeScreen(profile: widget.profile, onOpenTab: _select),
-            CustomerActivityScreen(profile: widget.profile),
-            CustomerProfileScreen(profile: widget.profile),
+            CustomerHomeScreen(profile: _profile, onOpenTab: _select),
+            CustomerActivityScreen(profile: _profile),
+            CustomerProfileScreen(
+              profile: _profile,
+              onProfileUpdated: (p) => setState(() => _profile = p),
+            ),
           ],
         ),
         bottomNavigationBar: AppBottomNav(

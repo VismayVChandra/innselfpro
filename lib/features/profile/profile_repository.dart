@@ -59,6 +59,27 @@ class ProfileRepository {
     return Profile.fromMap(data);
   }
 
+  /// Updates the caller's own name/phone/address. Uses the existing
+  /// profiles_update_own RLS policy -- no migration needed.
+  Future<Profile> updateProfile({
+    required String fullName,
+    required String phone,
+    String? address,
+  }) async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('profiles')
+        .update({
+          'full_name': fullName,
+          'phone': phone,
+          'address': address,
+        })
+        .eq('id', uid)
+        .select()
+        .single();
+    return Profile.fromMap(data);
+  }
+
   Future<void> upsertTechnicianDetails({
     required String skills,
     required String serviceArea,

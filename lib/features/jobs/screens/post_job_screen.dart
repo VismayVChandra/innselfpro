@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -35,6 +36,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
   File? _photo;
   bool _isLoading = false;
 
+  bool _isScheduled = false;
+  DateTime? _scheduledDate;
+  TimeOfDay? _scheduledTime;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +67,37 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return steps;
   }
 
+  DateTime? get _scheduledFor {
+    if (!_isScheduled || _scheduledDate == null) return null;
+    final time = _scheduledTime ?? const TimeOfDay(hour: 9, minute: 0);
+    return DateTime(
+      _scheduledDate!.year,
+      _scheduledDate!.month,
+      _scheduledDate!.day,
+      time.hour,
+      time.minute,
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (picked != null) setState(() => _scheduledDate = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _scheduledTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _scheduledTime = picked);
+  }
+
   Future<void> _pickPhoto() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -80,6 +116,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    if (_isScheduled && _scheduledDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick a date for the visit, or switch to "As soon as possible"')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -88,6 +130,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         description: _descriptionController.text.trim(),
         location: _locationController.text.trim(),
         photo: _photo,
+        scheduledFor: _scheduledFor,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -189,6 +232,60 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         : null,
                   ),
                 ),
+                const FieldLabel('When do you need this done?', topPadding: 23),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ToggleOption(
+                          label: 'As soon as possible',
+                          selected: !_isScheduled,
+                          onTap: () => setState(() => _isScheduled = false),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ToggleOption(
+                          label: 'Schedule for later',
+                          selected: _isScheduled,
+                          onTap: () => setState(() => _isScheduled = true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isScheduled) ...[
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _PickerField(
+                            icon: Icons.calendar_today_outlined,
+                            label: _scheduledDate == null
+                                ? 'Pick a date'
+                                : formatShortDate(_scheduledDate!),
+                            filled: _scheduledDate != null,
+                            onTap: _pickDate,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _PickerField(
+                            icon: Icons.access_time_outlined,
+                            label: _scheduledTime == null
+                                ? 'Pick a time'
+                                : _scheduledTime!.format(context),
+                            filled: _scheduledTime != null,
+                            onTap: _pickTime,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 31),
                 PrimaryButton(
                   label: 'Find my pro',
@@ -232,6 +329,99 @@ class _ProgressBar extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Centred two-option toggle for "as soon as possible" vs "schedule for
+/// later". Similar to [ChoicePill] but sized to fill an [Expanded] slot
+/// with its label centred, rather than sized to its content.
+class _ToggleOption extends StatelessWidget {
+  const _ToggleOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.foreground : AppColors.card,
+          border: Border.all(
+            color: selected ? AppColors.foreground : AppColors.border,
+          ),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.background : AppColors.foreground,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tappable field that opens a date or time picker, showing the chosen
+/// value once picked.
+class _PickerField extends StatelessWidget {
+  const _PickerField({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.filled,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      radius: 15,
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: filled ? AppColors.foreground : AppColors.mutedForeground,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: filled ? AppColors.foreground : AppColors.mutedForeground,
+              ),
+            ),
+          ),
         ],
       ),
     );

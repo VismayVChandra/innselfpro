@@ -158,7 +158,30 @@ class _PaymentRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(category, style: AppText.cardTitle),
+                  Row(
+                    children: [
+                      Flexible(child: Text(category, style: AppText.cardTitle)),
+                      if (payment.isCash) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.muted,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'CASH',
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: AppColors.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     payment.paidAt == null

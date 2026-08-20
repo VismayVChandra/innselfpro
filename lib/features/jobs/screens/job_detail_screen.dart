@@ -69,6 +69,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isUpdatingStatus = false;
   bool _isStartingPayment = false;
   bool _isConfirmingPayment = false;
+  bool _isMarkingCashPaid = false;
   int _selectedRating = 0;
   bool _isSubmittingReview = false;
   bool _isFlagging = false;
@@ -265,6 +266,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not start payment: $e')),
       );
+    }
+  }
+
+  Future<void> _markPaidInCash() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm cash payment'),
+        content: const Text(
+          "Only confirm this once you've actually handed over the cash -- "
+          'it closes out the job immediately and cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text("I've paid in cash"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _isMarkingCashPaid = true);
+    try {
+      await _paymentsRepository.markPaidInCash(_job.id);
+      if (!mounted) return;
+      setState(() {
+        _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not record cash payment: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isMarkingCashPaid = false);
     }
   }
 
@@ -781,7 +821,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               icon: Icons.verified_outlined,
               background: AppColors.successSurface,
               foreground: AppColors.success,
-              title: 'Paid ${formatRupees(payment!.amount)}',
+              title: 'Paid ${formatRupees(payment!.amount)}${payment.isCash ? ' (cash)' : ''}',
               message: payment.paidAt == null
                   ? 'This job is settled.'
                   : 'Settled on ${formatDateTime(payment.paidAt!)}.',
@@ -809,10 +849,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   PrimaryButton(
-                    label: 'Pay now',
+                    label: 'Pay online',
                     margin: EdgeInsets.zero,
                     isLoading: _isStartingPayment,
-                    onPressed: _startPayment,
+                    onPressed: _isMarkingCashPaid ? null : _startPayment,
+                  ),
+                  const SizedBox(height: 10),
+                  OutlineButton(
+                    label: "I've paid in cash",
+                    icon: Icons.payments_outlined,
+                    margin: EdgeInsets.zero,
+                    isLoading: _isMarkingCashPaid,
+                    onPressed: _isStartingPayment ? null : _markPaidInCash,
                   ),
                 ],
               ),
@@ -1194,6 +1242,13 @@ class _JobFactsCard extends StatelessWidget {
           ),
           const SizedBox(height: 11),
           _FactRow(icon: Icons.location_on_outlined, text: job.location),
+          const SizedBox(height: 11),
+          _FactRow(
+            icon: Icons.event_outlined,
+            text: job.scheduledFor == null
+                ? 'As soon as possible'
+                : 'Wants ${formatDateTime(job.scheduledFor!)}',
+          ),
           const SizedBox(height: 11),
           _FactRow(
             icon: Icons.schedule_outlined,

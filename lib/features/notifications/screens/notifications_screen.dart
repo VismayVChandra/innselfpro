@@ -7,6 +7,9 @@ import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/app_notification.dart';
+import '../../jobs/screens/job_detail_screen.dart';
+import '../../jobs/jobs_repository.dart';
+import '../../profile/profile_repository.dart';
 import '../notifications_repository.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -18,7 +21,10 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final _repository = NotificationsRepository();
+  final _jobsRepository = JobsRepository();
+  final _profileRepository = ProfileRepository();
   late Future<List<AppNotification>> _future;
+  String? _openingJobId;
 
   @override
   void initState() {
@@ -32,12 +38,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _onTap(AppNotification notification) async {
-    if (notification.isRead) return;
-    await _repository.markAsRead(notification.id);
-    if (!mounted) return;
-    setState(() {
-      _future = _repository.fetchMyNotifications();
-    });
+    if (!notification.isRead) {
+      await _repository.markAsRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        _future = _repository.fetchMyNotifications();
+      });
+    }
+    if (notification.jobId == null) return;
+    setState(() => _openingJobId = notification.id);
+    try {
+      final job = await _jobsRepository.fetchJobById(notification.jobId!);
+      final viewer = await _profileRepository.fetchMyProfile();
+      if (!mounted || viewer == null) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => JobDetailScreen(initialJob: job, viewerProfile: viewer),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open this job: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _openingJobId = null);
+    }
   }
 
   /// Icon + tint per notification type, so the list scans quickly.
@@ -117,6 +143,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         _NotificationRow(
                           notification: notification,
                           style: _styleFor(notification.type),
+                          isOpening: _openingJobId == notification.id,
                           onTap: () => _onTap(notification),
                         ),
                   ],
@@ -134,11 +161,13 @@ class _NotificationRow extends StatelessWidget {
   const _NotificationRow({
     required this.notification,
     required this.style,
+    required this.isOpening,
     required this.onTap,
   });
 
   final AppNotification notification;
   final ({IconData icon, Color color, Color background}) style;
+  final bool isOpening;
   final VoidCallback onTap;
 
   @override
@@ -185,7 +214,14 @@ class _NotificationRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (unread) ...[
+            if (isOpening) ...[
+              const SizedBox(width: 8),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ] else if (unread) ...[
               const SizedBox(width: 8),
               Container(
                 width: 8,

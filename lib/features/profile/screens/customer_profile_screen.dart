@@ -8,13 +8,19 @@ import '../../auth/auth_repository.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../widgets/profile_widgets.dart';
+import 'edit_profile_screen.dart';
 
 /// Account tab for a customer: who they are, where jobs get sent, and
 /// the way out.
 class CustomerProfileScreen extends StatefulWidget {
-  const CustomerProfileScreen({super.key, required this.profile});
+  const CustomerProfileScreen({
+    super.key,
+    required this.profile,
+    required this.onProfileUpdated,
+  });
 
   final Profile profile;
+  final ValueChanged<Profile> onProfileUpdated;
 
   @override
   State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
@@ -22,6 +28,7 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<int> _unreadFuture;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -37,6 +44,54 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     setState(() {
       _unreadFuture = NotificationsRepository().fetchUnreadCount();
     });
+  }
+
+  Future<void> _openEditProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          profile: widget.profile,
+          onSaved: widget.onProfileUpdated,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This removes your personal details from InnSelf and signs you '
+          'out everywhere. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep my account'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _isDeleting = true);
+    try {
+      await AuthRepository().deleteAccount();
+      await AuthRepository().signOut();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete account: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
   }
 
   @override
@@ -60,6 +115,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: kGutter),
               child: Column(
                 children: [
+                  SettingsRow(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit profile',
+                    value: 'Update your name, phone and address',
+                    onTap: _openEditProfile,
+                  ),
                   FutureBuilder<int>(
                     future: _unreadFuture,
                     builder: (context, snapshot) {
@@ -94,6 +155,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     iconColor: AppColors.destructive,
                     labelColor: AppColors.destructive,
                     onTap: () => AuthRepository().signOut(),
+                  ),
+                  SettingsRow(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Delete account',
+                    value: _isDeleting
+                        ? 'Deleting...'
+                        : 'Permanently remove your personal data',
+                    iconBackground: const Color(0x1AD94B48),
+                    iconColor: AppColors.destructive,
+                    labelColor: AppColors.destructive,
+                    onTap: _isDeleting ? null : _deleteAccount,
+                    trailing: _isDeleting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
                   ),
                 ],
               ),

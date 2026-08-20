@@ -8,6 +8,11 @@ class Job {
   final String location;
   final String status;
   final String? acceptedBidId;
+
+  /// The customer's requested visit time. Null means "as soon as
+  /// possible" rather than an unset value.
+  final DateTime? scheduledFor;
+
   final DateTime createdAt;
 
   const Job({
@@ -20,6 +25,7 @@ class Job {
     required this.location,
     required this.status,
     this.acceptedBidId,
+    this.scheduledFor,
     required this.createdAt,
   });
 
@@ -35,6 +41,9 @@ class Job {
         location: map['location'] as String,
         status: map['status'] as String,
         acceptedBidId: map['accepted_bid_id'] as String?,
+        scheduledFor: map['scheduled_for'] == null
+            ? null
+            : DateTime.parse(map['scheduled_for'] as String),
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 }

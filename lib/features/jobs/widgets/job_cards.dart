@@ -152,6 +152,31 @@ class JobFeedCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (job.scheduledFor != null) ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event_outlined,
+                          size: 12,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Wants ${formatShortDate(job.scheduledFor!)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.bodyMuted.copyWith(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

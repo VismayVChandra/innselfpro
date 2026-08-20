@@ -4,6 +4,12 @@ class Payment {
   final double amount;
   final String status;
   final String? razorpayPaymentId;
+
+  /// Null on rows created before this column existed -- those were all
+  /// made through the Razorpay Edge Function, so null is treated the
+  /// same as 'razorpay'.
+  final String? paymentMethod;
+
   final DateTime? paidAt;
   final String? jobCategoryName;
 
@@ -13,6 +19,7 @@ class Payment {
     required this.amount,
     required this.status,
     this.razorpayPaymentId,
+    this.paymentMethod,
     this.paidAt,
     this.jobCategoryName,
   });
@@ -23,8 +30,11 @@ class Payment {
         amount: (map['amount'] as num).toDouble(),
         status: map['status'] as String,
         razorpayPaymentId: map['razorpay_payment_id'] as String?,
+        paymentMethod: map['payment_method'] as String?,
         paidAt: map['paid_at'] == null ? null : DateTime.parse(map['paid_at'] as String),
         jobCategoryName: (map['jobs']
             as Map<String, dynamic>?)?['categories']?['name'] as String?,
       );
+
+  bool get isCash => paymentMethod == 'cash';
 }

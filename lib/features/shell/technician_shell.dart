@@ -22,6 +22,7 @@ class TechnicianShell extends StatefulWidget {
 class _TechnicianShellState extends State<TechnicianShell> {
   final _refreshSignal = RefreshSignal();
   int _index = 0;
+  late Profile _profile = widget.profile;
 
   @override
   void dispose() {
@@ -39,9 +40,12 @@ class _TechnicianShellState extends State<TechnicianShell> {
         body: IndexedStack(
           index: _index,
           children: [
-            TechnicianHomeScreen(profile: widget.profile, onOpenTab: _select),
-            TechnicianAcceptedJobsScreen(profile: widget.profile),
-            TechnicianProfileScreen(profile: widget.profile),
+            TechnicianHomeScreen(profile: _profile, onOpenTab: _select),
+            TechnicianAcceptedJobsScreen(profile: _profile),
+            TechnicianProfileScreen(
+              profile: _profile,
+              onProfileUpdated: (p) => setState(() => _profile = p),
+            ),
           ],
         ),
         bottomNavigationBar: AppBottomNav(
