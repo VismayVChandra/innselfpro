@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/format.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/buttons.dart';
+import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/states.dart';
+import '../../../core/widgets/surfaces.dart';
 import '../../../models/bid.dart';
 import '../../../models/dispute.dart';
 import '../../../models/job.dart';
@@ -11,6 +18,7 @@ import '../../disputes/disputes_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../reviews/reviews_repository.dart';
+import '../job_status.dart';
 import '../jobs_repository.dart';
 
 class JobDetailScreen extends StatefulWidget {
@@ -227,7 +235,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         title: const Text('Flag an issue'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'What went wrong?'),
+          decoration: const InputDecoration(hintText: 'What went wrong?'),
           maxLines: 3,
           autofocus: true,
         ),
@@ -269,6 +277,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (!mounted) return;
       setState(() {
         _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
+        _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
       });
     } catch (e) {
       if (!mounted) return;
@@ -283,91 +292,112 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_job.categoryName)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Chip(label: Text(_job.status.replaceAll('_', ' ').toUpperCase())),
-            const SizedBox(height: 16),
-            if (_job.photoUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _job.photoUrl!,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 10, bottom: 36),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TopBar(
+                eyebrow: 'JOB ${_job.id.substring(0, 8)}',
+                title: _job.categoryName,
               ),
-              const SizedBox(height: 16),
+              _StatusPanel(job: _job, forTechnician: _isTechnician),
+              if (_job.status != 'open') ...[
+                const SizedBox(height: 13),
+                _TimelineCard(step: JobStatusInfo.of(_job.status).step),
+              ],
+              const SizedBox(height: 13),
+              _JobFactsCard(job: _job),
+              if (_job.photoUrl != null) ...[
+                const SizedBox(height: 13),
+                _JobPhoto(url: _job.photoUrl!),
+              ],
+              if (_isTechnician) _buildTechnicianSection(),
+              if (_isOwningCustomer) _buildCustomerSection(),
             ],
-            Text('Description', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(_job.description),
-            const SizedBox(height: 16),
-            Text('Location', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(_job.location),
-            const SizedBox(height: 16),
-            Text('Posted', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(_job.createdAt.toLocal().toString()),
-            const SizedBox(height: 24),
-            if (_isTechnician) _buildTechnicianSection(),
-            if (_isOwningCustomer) _buildCustomerSection(),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  // ---------------------------------------------------------------- technician
 
   Widget _buildTechnicianSection() {
     return FutureBuilder<Bid?>(
       future: _myBidFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingView(height: 160);
         }
         final myBid = snapshot.data;
 
         if (_job.status == 'open') {
           if (myBid != null) {
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('You bid ₹${myBid.amount.toStringAsFixed(0)} - ${myBid.status}'),
+            return Padding(
+              padding: const EdgeInsets.only(top: 13),
+              child: AppCard(
+                radius: 21,
+                padding: const EdgeInsets.all(17),
+                child: Row(
+                  children: [
+                    const SoftIcon(
+                      Icons.check_circle_outline,
+                      background: AppColors.successSurface,
+                      foreground: AppColors.success,
+                      size: 42,
+                      iconSize: 21,
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Your bid is in', style: AppText.cardTitleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            'You quoted ${formatRupees(myBid.amount)}  ·  ${humanizeStatus(myBid.status)}',
+                            style: AppText.bodyMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return _SectionCard(
+            title: 'Submit a bid',
+            subtitle: 'Quote a fair price and tell the customer why you.',
             children: [
-              Text('Submit a bid', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
               TextField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Your price (₹)'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _noteController,
-                decoration: const InputDecoration(labelText: 'Note (optional)'),
-                maxLines: 2,
+                style: AppText.body.copyWith(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'Your price',
+                  prefixText: '₹ ',
+                ),
               ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _isSubmittingBid ? null : _submitBid,
-                child: _isSubmittingBid
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Submit bid'),
+              TextField(
+                controller: _noteController,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                style: AppText.body.copyWith(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'Note (optional)',
+                  hintText: 'What is included, when you can come...',
+                ),
+              ),
+              const SizedBox(height: 16),
+              PrimaryButton(
+                label: 'Submit bid',
+                margin: EdgeInsets.zero,
+                isLoading: _isSubmittingBid,
+                onPressed: _submitBid,
               ),
             ],
           );
@@ -376,43 +406,78 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         // Job is no longer open. Only the technician whose bid was
         // accepted has anything to do here.
         if (myBid == null || myBid.status != 'accepted') {
-          return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 13),
+            child: EmptyStateCard(
+              icon: Icons.lock_outline_rounded,
+              title: 'This job is closed',
+              message: myBid == null
+                  ? 'It was assigned before you placed a bid.'
+                  : 'The customer chose a different technician this time.',
+            ),
+          );
         }
 
-        Widget statusWidget;
+        Widget? action;
         if (_job.status == 'bid_accepted') {
-          statusWidget = FilledButton(
-            onPressed: _isUpdatingStatus ? null : _startJob,
-            child: _isUpdatingStatus
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Start job'),
+          action = PrimaryButton(
+            label: 'Start this job',
+            isLoading: _isUpdatingStatus,
+            onPressed: _startJob,
           );
         } else if (_job.status == 'in_progress') {
-          statusWidget = FilledButton(
-            onPressed: _isUpdatingStatus ? null : _completeJob,
-            child: _isUpdatingStatus
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Mark completed'),
+          action = PrimaryButton(
+            label: 'Mark as completed',
+            isLoading: _isUpdatingStatus,
+            onPressed: _completeJob,
           );
-        } else if (_job.status == 'completed') {
-          statusWidget = const Text('You completed this job.');
-        } else {
-          statusWidget = const SizedBox.shrink();
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            statusWidget,
-            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.only(top: 13),
+              child: AppCard(
+                radius: 21,
+                padding: const EdgeInsets.all(17),
+                child: Row(
+                  children: [
+                    const SoftIcon(
+                      Icons.workspace_premium_outlined,
+                      size: 42,
+                      iconSize: 21,
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('You won this job', style: AppText.cardTitleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Agreed price ${formatRupees(myBid.amount)}',
+                            style: AppText.bodyMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (action != null) ...[const SizedBox(height: 20), action],
+            if (_job.status == 'completed') ...[
+              const SizedBox(height: 13),
+              _NoticeCard(
+                icon: Icons.check_circle_outline,
+                background: AppColors.successSurface,
+                foreground: AppColors.success,
+                title: 'Work completed',
+                message:
+                    'Once the customer pays, it will show up in your wallet.',
+              ),
+            ],
             _buildDisputeSection(),
           ],
         );
@@ -420,69 +485,83 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
+  // ------------------------------------------------------------------ customer
+
   Widget _buildCustomerSection() {
     if (_job.status != 'open') {
-      Widget statusWidget;
-      if (_job.status == 'bid_accepted') {
-        statusWidget = const Text('A technician has been assigned and will begin work soon.');
-      } else if (_job.status == 'in_progress') {
-        statusWidget = const Text('Your technician is currently working on this job.');
-      } else if (_job.status == 'completed') {
-        statusWidget = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildPaymentSection(),
-            const SizedBox(height: 24),
-            _buildReviewSection(),
-          ],
-        );
-      } else {
-        statusWidget = const SizedBox.shrink();
-      }
-
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          statusWidget,
-          const SizedBox(height: 24),
+          if (_job.status == 'bid_accepted')
+            Padding(
+              padding: const EdgeInsets.only(top: 13),
+              child: _NoticeCard(
+                icon: Icons.engineering_outlined,
+                title: 'Your technician is assigned',
+                message: 'They will start the work shortly.',
+              ),
+            )
+          else if (_job.status == 'in_progress')
+            Padding(
+              padding: const EdgeInsets.only(top: 13),
+              child: _NoticeCard(
+                icon: Icons.handyman_outlined,
+                background: Color(0x1FF0644F),
+                foreground: AppColors.primary,
+                title: 'Work in progress',
+                message: 'Your technician is on the job right now.',
+              ),
+            )
+          else if (_job.status == 'completed') ...[
+            _buildPaymentSection(),
+            _buildReviewSection(),
+          ],
           _buildDisputeSection(),
         ],
       );
     }
+
     return FutureBuilder<List<Bid>>(
       future: _bidsFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Text('Could not load bids: ${snapshot.error}');
+          return ErrorView(message: 'Could not load bids: ${snapshot.error}');
         }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const LoadingView(height: 160);
         }
         final bids = snapshot.data!;
+        if (bids.isEmpty) {
+          return Column(
+            children: [
+              SectionHeading(title: 'Bids received', topPadding: 28),
+              const EmptyView(
+                icon: Icons.hourglass_empty_rounded,
+                title: 'No bids yet',
+                message:
+                    'Local technicians are seeing your request. We will notify you the moment one bids.',
+              ),
+            ],
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Bids received', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (bids.isEmpty) const Text('No bids yet.'),
-            ...bids.map(
-              (bid) => Card(
-                child: ListTile(
-                  title: Text('${bid.technicianName} - ₹${bid.amount.toStringAsFixed(0)}'),
-                  subtitle: bid.note != null && bid.note!.isNotEmpty ? Text(bid.note!) : null,
-                  trailing: FilledButton(
-                    onPressed: _acceptingBidId != null ? null : () => _acceptBid(bid),
-                    child: _acceptingBidId == bid.id
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Accept'),
-                  ),
-                ),
-              ),
+            SectionHeading(
+              title:
+                  '${bids.length} technician${bids.length == 1 ? '' : 's'} interested',
+              actionLabel: 'Lowest first',
+              topPadding: 28,
             ),
+            for (var i = 0; i < bids.length; i++)
+              _BidCard(
+                bid: bids[i],
+                isLowest: i == 0 && bids.length > 1,
+                isAccepting: _acceptingBidId == bids[i].id,
+                acceptDisabled: _acceptingBidId != null,
+                onAccept: () => _acceptBid(bids[i]),
+              ),
+            const FootNote('Your address is shared once you choose a pro.'),
           ],
         );
       },
@@ -491,45 +570,79 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Widget _buildPaymentSection() {
     if (_isConfirmingPayment) {
-      return const Row(
-        children: [
-          SizedBox(
-            height: 16,
-            width: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+      return Padding(
+        padding: const EdgeInsets.only(top: 13),
+        child: AppCard(
+          radius: 21,
+          padding: const EdgeInsets.all(17),
+          child: Row(
+            children: [
+              const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 14),
+              Text('Confirming your payment...', style: AppText.cardTitle),
+            ],
           ),
-          SizedBox(width: 12),
-          Text('Confirming payment...'),
-        ],
+        ),
       );
     }
     return FutureBuilder<Payment?>(
       future: _paymentFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Text('Could not load payment status: ${snapshot.error}');
+          return ErrorView(
+            message: 'Could not load payment status: ${snapshot.error}',
+          );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingView(height: 140);
         }
         final payment = snapshot.data;
         if (payment?.status == 'paid') {
-          return Text('Paid ₹${payment!.amount.toStringAsFixed(0)}.');
+          return Padding(
+            padding: const EdgeInsets.only(top: 13),
+            child: _NoticeCard(
+              icon: Icons.verified_outlined,
+              background: AppColors.successSurface,
+              foreground: AppColors.success,
+              title: 'Paid ${formatRupees(payment!.amount)}',
+              message: payment.paidAt == null
+                  ? 'This job is settled.'
+                  : 'Settled on ${formatDateTime(payment.paidAt!)}.',
+            ),
+          );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('This job is complete. Pay to close it out.'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _isStartingPayment ? null : _startPayment,
-              child: _isStartingPayment
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Pay now'),
+            const SectionHeading(title: 'Payment', topPadding: 28),
+            AppCard(
+              radius: 21,
+              padding: const EdgeInsets.all(17),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'The work is done. Pay to close it out.',
+                    style: AppText.cardTitleLarge,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'You only pay after the job is marked complete.',
+                    style: AppText.bodyMuted,
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(
+                    label: 'Pay now',
+                    margin: EdgeInsets.zero,
+                    isLoading: _isStartingPayment,
+                    onPressed: _startPayment,
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -542,52 +655,53 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       future: _reviewFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Text('Could not load review: ${snapshot.error}');
+          return ErrorView(message: 'Could not load review: ${snapshot.error}');
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingView(height: 140);
         }
         final review = snapshot.data;
         if (review != null) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return _SectionCard(
+            title: 'Your review',
             children: [
-              Text('Your review', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _buildStarRow(rating: review.rating),
+              StarRow(rating: review.rating, size: 20),
               if (review.comment != null && review.comment!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(review.comment!),
+                const SizedBox(height: 8),
+                Text(
+                  '"${review.comment!}"',
+                  style: AppText.body.copyWith(fontStyle: FontStyle.italic),
+                ),
               ],
             ],
           );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        return _SectionCard(
+          title: 'Rate your technician',
+          subtitle: 'Your rating helps other neighbours choose well.',
           children: [
-            Text('Rate this technician', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            _buildStarRow(
-              rating: _selectedRating,
-              interactive: true,
-              onChanged: (r) => setState(() => _selectedRating = r),
+            Center(
+              child: StarRow(
+                rating: _selectedRating,
+                onChanged: (r) => setState(() => _selectedRating = r),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             TextField(
               controller: _reviewCommentController,
-              decoration: const InputDecoration(labelText: 'Comment (optional)'),
-              maxLines: 2,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              style: AppText.body.copyWith(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Anything you want to add? (optional)',
+              ),
             ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: (_isSubmittingReview || _selectedRating == 0) ? null : _submitReview,
-              child: _isSubmittingReview
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Submit review'),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: 'Submit review',
+              margin: EdgeInsets.zero,
+              isLoading: _isSubmittingReview,
+              onPressed: _selectedRating == 0 ? null : _submitReview,
             ),
           ],
         );
@@ -600,62 +714,618 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       future: _disputeFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Text('Could not load dispute status: ${snapshot.error}');
+          return ErrorView(
+            message: 'Could not load dispute status: ${snapshot.error}',
+          );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox.shrink();
         }
         final dispute = snapshot.data;
         if (dispute != null) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dispute flagged (${dispute.status})',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(dispute.reason),
-                ],
-              ),
+          return Padding(
+            padding: const EdgeInsets.only(top: 13),
+            child: _NoticeCard(
+              icon: Icons.flag_outlined,
+              background: const Color(0x1AD94B48),
+              foreground: AppColors.destructive,
+              title: 'Issue flagged  ·  ${humanizeStatus(dispute.status)}',
+              message: dispute.reason,
             ),
           );
         }
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: _isFlagging ? null : _showFlagDialog,
-            icon: const Icon(Icons.flag_outlined),
-            label: const Text('Flag an issue'),
+        return Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: OutlineButton(
+            label: 'Flag an issue with this job',
+            icon: Icons.flag_outlined,
+            color: AppColors.destructive,
+            isLoading: _isFlagging,
+            onPressed: _showFlagDialog,
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildStarRow({
-    required int rating,
-    bool interactive = false,
-    ValueChanged<int>? onChanged,
-  }) {
+/// Dark "live update" panel at the top of the job.
+class _StatusPanel extends StatelessWidget {
+  const _StatusPanel({required this.job, required this.forTechnician});
+
+  final Job job;
+  final bool forTechnician;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = JobStatusInfo.of(job.status);
+    final isFinished = job.status == 'completed';
+    final label =
+        forTechnician ? status.technicianLabel : status.customerLabel;
+
+    return DarkPanel(
+      padding: const EdgeInsets.all(20),
+      solidColor: isFinished ? AppColors.panelOnline : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isFinished
+                            ? AppColors.onPanelKicker
+                            : AppColors.peach,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      isFinished ? 'COMPLETED' : 'LIVE UPDATE',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                formatShortDate(job.createdAt),
+                style: const TextStyle(
+                  color: AppColors.onPanelFaint,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 23,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            isFinished
+                ? 'Thanks for using InnSelf.'
+                : 'We will keep this updated as things move along.',
+            style: const TextStyle(
+              color: AppColors.onPanelMuted,
+              fontSize: 11.5,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: status.progress / 100,
+              minHeight: 5,
+              backgroundColor: Colors.white.withValues(alpha: 0.16),
+              valueColor: const AlwaysStoppedAnimation(AppColors.peach),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Four-milestone tracker, drawn once a job leaves the open state.
+class _TimelineCard extends StatelessWidget {
+  const _TimelineCard({required this.step});
+
+  final int step;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = JobStatusInfo.timeline;
+    return AppCard(
+      radius: 21,
+      padding: const EdgeInsets.fromLTRB(17, 17, 17, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Job progress', style: AppText.cardTitleLarge),
+          const SizedBox(height: 16),
+          for (var i = 0; i < steps.length; i++)
+            _TimelineRow(
+              label: steps[i].label,
+              icon: steps[i].icon,
+              done: i <= step,
+              current: i == step,
+              isLast: i == steps.length - 1,
+              railFilled: i < step,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({
+    required this.label,
+    required this.icon,
+    required this.done,
+    required this.current,
+    required this.isLast,
+    required this.railFilled,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool done;
+  final bool current;
+  final bool isLast;
+  final bool railFilled;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: done ? AppColors.accent : AppColors.background,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: done ? AppColors.accent : AppColors.border,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 15,
+                  color: done
+                      ? AppColors.accentForeground
+                      : AppColors.mutedForeground,
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: railFilled ? AppColors.accent : AppColors.border,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 6, bottom: isLast ? 11 : 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppText.cardTitle.copyWith(
+                      color: done
+                          ? AppColors.foreground
+                          : AppColors.mutedForeground,
+                    ),
+                  ),
+                  if (current) ...[
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Current status',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (done)
+            const Padding(
+              padding: EdgeInsets.only(top: 7),
+              child: Icon(
+                Icons.check_circle,
+                size: 17,
+                color: AppColors.primary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Category, location and posting time in one card.
+class _JobFactsCard extends StatelessWidget {
+  const _JobFactsCard({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      radius: 21,
+      padding: const EdgeInsets.all(17),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(job.description, style: AppText.body.copyWith(fontSize: 13)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 15),
+            child: Divider(),
+          ),
+          _FactRow(
+            icon: CategoryStyle.of(job.categoryName).icon,
+            text: job.categoryName,
+          ),
+          const SizedBox(height: 11),
+          _FactRow(icon: Icons.location_on_outlined, text: job.location),
+          const SizedBox(height: 11),
+          _FactRow(
+            icon: Icons.schedule_outlined,
+            text: 'Posted ${formatDateTime(job.createdAt)}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FactRow extends StatelessWidget {
+  const _FactRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (i) {
-        final icon = Icon(
-          i < rating ? Icons.star : Icons.star_border,
-          color: Colors.amber,
-        );
-        if (!interactive) return icon;
-        return IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          onPressed: () => onChanged?.call(i + 1),
-          icon: icon,
-        );
-      }),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 17, color: AppColors.mutedForeground),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text(text, style: AppText.body.copyWith(fontSize: 12.5)),
+        ),
+      ],
+    );
+  }
+}
+
+class _JobPhoto extends StatelessWidget {
+  const _JobPhoto({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(21),
+        child: Image.network(
+          url,
+          height: 200,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : Container(
+                  height: 200,
+                  color: AppColors.muted,
+                  alignment: Alignment.center,
+                  child: const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A titled white card holding form fields or read-only content.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeading(title: title, topPadding: 28),
+        AppCard(
+          radius: 21,
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (subtitle != null) ...[
+                Text(subtitle!, style: AppText.bodyMuted),
+                const SizedBox(height: 14),
+              ],
+              ...children,
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Coloured status card: an icon tile, a headline and a line of detail.
+class _NoticeCard extends StatelessWidget {
+  const _NoticeCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.background = AppColors.secondary,
+    this.foreground = AppColors.accentForeground,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      radius: 21,
+      padding: const EdgeInsets.all(17),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SoftIcon(
+            icon,
+            background: background,
+            foreground: foreground,
+            size: 42,
+            iconSize: 21,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppText.cardTitleLarge),
+                const SizedBox(height: 4),
+                Text(message, style: AppText.bodyMuted),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One technician's offer on an open job.
+class _BidCard extends StatelessWidget {
+  const _BidCard({
+    required this.bid,
+    required this.isLowest,
+    required this.isAccepting,
+    required this.acceptDisabled,
+    required this.onAccept,
+  });
+
+  final Bid bid;
+  final bool isLowest;
+  final bool isAccepting;
+  final bool acceptDisabled;
+  final VoidCallback onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: AppCard(
+        radius: 21,
+        padding: EdgeInsets.zero,
+        borderColor: isLowest ? AppColors.primary : AppColors.border,
+        borderWidth: isLowest ? 1.6 : 1,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 45,
+                        height: 45,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isLowest
+                              ? const Color(0xFFD9EEE6)
+                              : const Color(0xFFECE6DE),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          initialsOf(bid.technicianName),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: isLowest
+                                ? AppColors.success
+                                : const Color(0xFF88644F),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              bid.technicianName.isEmpty
+                                  ? 'Technician'
+                                  : bid.technicianName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.cardTitleLarge,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Bid placed ${formatRelative(bid.createdAt)}',
+                              style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 15, bottom: 13),
+                    child: Divider(),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('QUOTE', style: AppText.microLabel),
+                          const SizedBox(height: 4),
+                          Text(formatRupees(bid.amount), style: AppText.amount),
+                        ],
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        height: 42,
+                        child: FilledButton(
+                          onPressed: acceptDisabled ? null : onAccept,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.primaryForeground,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: isAccepting
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Choose'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (bid.note != null && bid.note!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      '"${bid.note!}"',
+                      style: AppText.bodyMuted.copyWith(
+                        fontStyle: FontStyle.italic,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (isLowest)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(20),
+                      bottomLeft: Radius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'LOWEST BID',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

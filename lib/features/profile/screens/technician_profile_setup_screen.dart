@@ -3,6 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/buttons.dart';
+import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/states.dart';
+import '../../../core/widgets/surfaces.dart';
 import '../../../models/profile.dart';
 import '../profile_repository.dart';
 
@@ -42,8 +48,10 @@ class _TechnicianProfileSetupScreenState
   }
 
   Future<void> _pickKycDocument() async {
-    final picked =
-        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (picked != null) {
       setState(() => _kycDocument = File(picked.path));
     }
@@ -88,104 +96,207 @@ class _TechnicianProfileSetupScreenState
     }
   }
 
+  Widget _field({
+    required TextEditingController controller,
+    required String hint,
+    IconData? icon,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+    TextCapitalization capitalization = TextCapitalization.sentences,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        textCapitalization: capitalization,
+        style: AppText.body.copyWith(fontSize: 13, height: 1.5),
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: icon == null
+              ? null
+              : Icon(icon, size: 20, color: AppColors.mutedForeground),
+        ),
+        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Your details')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 10, bottom: 36),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
+                const TopBar(eyebrow: 'TECHNICIAN', title: 'Your details'),
+                const FieldLabel('Full name', topPadding: 12),
+                _field(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Full name'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hint: 'As it appears on your ID',
+                  icon: Icons.person_outline_rounded,
+                  capitalization: TextCapitalization.words,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
+                const FieldLabel('Phone number', topPadding: 20),
+                _field(
                   controller: _phoneController,
+                  hint: 'So customers can reach you',
+                  icon: Icons.call_outlined,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone number'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
+                const FieldLabel('Address', topPadding: 20),
+                _field(
                   controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                  maxLines: 2,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hint: 'Flat, street, area, city',
+                  maxLines: 3,
+                  capitalization: TextCapitalization.words,
                 ),
-                const SizedBox(height: 24),
-                Text('Work details', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
+                const SectionHeading(title: 'Your work'),
+                const FieldLabel('Skills'),
+                _field(
                   controller: _skillsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Skills',
-                    hintText: 'e.g. Electrician, AC Repair',
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hint: 'e.g. Electrician, AC Repair',
+                  icon: Icons.handyman_outlined,
+                  capitalization: TextCapitalization.words,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
+                const FieldLabel('Service area', topPadding: 20),
+                _field(
                   controller: _serviceAreaController,
-                  decoration: const InputDecoration(
-                    labelText: 'Service area',
-                    hintText: 'e.g. Koramangala, Bangalore',
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hint: 'e.g. Koramangala, Bangalore',
+                  icon: Icons.map_outlined,
+                  capitalization: TextCapitalization.words,
                 ),
-                const SizedBox(height: 24),
-                Text('KYC', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
+                const SectionHeading(title: 'Identity check'),
+                const FieldLabel('Government ID number'),
+                _field(
                   controller: _idNumberController,
-                  decoration: const InputDecoration(
-                    labelText: 'Government ID number',
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hint: 'Aadhaar, PAN, Voter ID...',
+                  icon: Icons.badge_outlined,
+                  capitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _pickKycDocument,
-                  icon: const Icon(Icons.upload_file),
-                  label: Text(
-                    _kycDocument == null
-                        ? 'Upload ID document photo'
-                        : 'Photo selected - tap to change',
-                  ),
+                _KycUpload(
+                  document: _kycDocument,
+                  onPick: _pickKycDocument,
+                  onClear: () => setState(() => _kycDocument = null),
                 ),
-                if (_kycDocument != null) ...[
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(_kycDocument!, height: 120, fit: BoxFit.cover),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Continue'),
+                const SizedBox(height: 30),
+                PrimaryButton(
+                  label: 'Continue',
+                  isLoading: _isLoading,
+                  onPressed: _submit,
+                ),
+                const FootNote(
+                  'Your ID is stored privately and is never shown to customers.',
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// KYC document: a prompt card while empty, a preview once chosen.
+class _KycUpload extends StatelessWidget {
+  const _KycUpload({
+    required this.document,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final File? document;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (document == null) {
+      return AppCard(
+        onTap: onPick,
+        radius: 17,
+        padding: const EdgeInsets.all(13),
+        child: Row(
+          children: [
+            const SoftIcon(Icons.upload_file_outlined, size: 39, iconSize: 19),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Upload your ID photo', style: AppText.cardTitle),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Required. A clear photo of the document above.',
+                    style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.mutedForeground,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(17),
+            child: Image.file(
+              document!,
+              height: 170,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Row(
+              children: [
+                _ImageAction(icon: Icons.edit_outlined, onTap: onPick),
+                const SizedBox(width: 8),
+                _ImageAction(icon: Icons.close_rounded, onTap: onClear),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageAction extends StatelessWidget {
+  const _ImageAction({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(icon, size: 17, color: AppColors.foreground),
         ),
       ),
     );

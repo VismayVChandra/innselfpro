@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/buttons.dart';
+import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/states.dart';
 import '../../../models/profile.dart';
 import '../profile_repository.dart';
 
@@ -56,47 +61,76 @@ class _CustomerProfileSetupScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Your details')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 10, bottom: 36),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Full name'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                const TopBar(eyebrow: 'CUSTOMER', title: 'Your details'),
+                const FieldLabel('Full name', topPadding: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: 'As your technician should address you',
+                      prefixIcon: Icon(
+                        Icons.person_outline_rounded,
+                        size: 20,
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone number'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                const FieldLabel('Phone number', topPadding: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: 'So your pro can reach you',
+                      prefixIcon: Icon(
+                        Icons.call_outlined,
+                        size: 20,
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                  maxLines: 2,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                const FieldLabel('Address', topPadding: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
+                    controller: _addressController,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.words,
+                    style: AppText.body.copyWith(fontSize: 13, height: 1.5),
+                    decoration: const InputDecoration(
+                      hintText: 'Flat, street, area, city',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
                 ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Continue'),
+                const SizedBox(height: 30),
+                PrimaryButton(
+                  label: 'Continue',
+                  isLoading: _isLoading,
+                  onPressed: _submit,
+                ),
+                const FootNote(
+                  'Your address is only shared with technicians who bid on your jobs.',
                 ),
               ],
             ),

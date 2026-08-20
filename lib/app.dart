@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
 import 'features/auth/screens/auth_gate.dart';
 
 class InnselfApp extends StatelessWidget {
@@ -8,8 +9,9 @@ class InnselfApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Innself',
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+      title: 'InnSelf',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.build(),
       home: const AuthGate(),
     );
   }

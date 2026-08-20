@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/buttons.dart';
+import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/states.dart';
 import '../auth_repository.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -15,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _authRepository = AuthRepository();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -57,45 +63,82 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
-        child: Center(
+        child: Form(
+          key: _formKey,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
+            padding: const EdgeInsets.only(top: 10, bottom: 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const TopBar(
+                  eyebrow: 'GET STARTED',
+                  title: 'Create your account',
+                ),
+                const FieldLabel('Email address', topPadding: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                    autocorrect: false,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: 'you@example.com',
+                      prefixIcon: Icon(
+                        Icons.mail_outline_rounded,
+                        size: 20,
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                    validator: (v) => (v == null || !v.contains('@'))
+                        ? 'Enter a valid email'
+                        : null,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
+                ),
+                const FieldLabel('Password', topPadding: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password'),
+                    obscureText: _obscurePassword,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'At least 6 characters',
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 20,
+                        color: AppColors.mutedForeground,
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 19,
+                          color: AppColors.mutedForeground,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                        tooltip: _obscurePassword ? 'Show' : 'Hide',
+                      ),
+                    ),
                     validator: (v) =>
                         (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
                   ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign up'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 28),
+                PrimaryButton(
+                  label: 'Create account',
+                  isLoading: _isLoading,
+                  onPressed: _submit,
+                ),
+                const FootNote(
+                  'Next you will pick whether you are here to hire or to work.',
+                  icon: Icons.arrow_forward_rounded,
+                ),
+              ],
             ),
           ),
         ),

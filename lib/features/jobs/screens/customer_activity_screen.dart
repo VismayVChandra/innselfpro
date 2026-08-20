@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
@@ -9,41 +10,46 @@ import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../notifications/notification_bell.dart';
 import '../../shell/refresh_signal.dart';
-import '../job_status.dart';
 import '../jobs_repository.dart';
 import '../widgets/job_cards.dart';
 import 'job_detail_screen.dart';
+import 'post_job_screen.dart';
 
-/// Jobs this technician won the bid on. They drop out of the open feed
-/// once accepted, so this tab is the only way back to them.
-class TechnicianAcceptedJobsScreen extends StatefulWidget {
-  const TechnicianAcceptedJobsScreen({super.key, required this.profile});
+/// Every request this customer has ever posted, newest first.
+class CustomerActivityScreen extends StatefulWidget {
+  const CustomerActivityScreen({super.key, required this.profile});
 
   final Profile profile;
 
   @override
-  State<TechnicianAcceptedJobsScreen> createState() =>
-      _TechnicianAcceptedJobsScreenState();
+  State<CustomerActivityScreen> createState() => _CustomerActivityScreenState();
 }
 
-class _TechnicianAcceptedJobsScreenState
-    extends State<TechnicianAcceptedJobsScreen> with RefreshAware {
+class _CustomerActivityScreenState extends State<CustomerActivityScreen>
+    with RefreshAware {
   final _jobsRepository = JobsRepository();
   late Future<List<Job>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _jobsRepository.fetchMyAcceptedJobs();
+    _future = _jobsRepository.fetchMyJobs();
   }
 
   @override
   void onRefreshSignal() =>
-      setState(() => _future = _jobsRepository.fetchMyAcceptedJobs());
+      setState(() => _future = _jobsRepository.fetchMyJobs());
 
   Future<void> _refresh() async {
-    setState(() => _future = _jobsRepository.fetchMyAcceptedJobs());
+    setState(() => _future = _jobsRepository.fetchMyJobs());
     await _future;
+  }
+
+  Future<void> _openPostJob() async {
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const PostJobScreen()),
+    );
+    if (posted == true && mounted) RefreshScope.of(context).bump();
   }
 
   Future<void> _openJob(Job job) async {
@@ -73,40 +79,40 @@ class _TechnicianAcceptedJobsScreenState
             future: _future,
             builder: (context, snapshot) {
               final jobs = snapshot.data ?? const <Job>[];
-              final live =
-                  jobs.where((j) => JobStatusInfo.isActive(j.status)).length;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const ScreenHeader(
-                    eyebrow: 'YOUR WORK',
-                    title: 'My jobs',
+                    eyebrow: 'YOUR INNSELF',
+                    title: 'Activity',
                     action: NotificationBell(),
                   ),
+                  _SummaryCard(count: jobs.length),
                   if (snapshot.hasError)
                     ErrorView(
-                      message: 'Could not load your jobs: ${snapshot.error}',
+                      message: 'Could not load your requests: ${snapshot.error}',
                       onRetry: _refresh,
                     )
                   else if (snapshot.connectionState != ConnectionState.done)
                     const LoadingView()
                   else ...[
-                    _WonSummary(total: jobs.length, live: live),
-                    const SectionHeading(title: 'All accepted jobs'),
+                    const SectionHeading(title: 'All requests', topPadding: 30),
                     if (jobs.isEmpty)
                       const EmptyView(
-                        icon: Icons.work_outline_rounded,
-                        title: 'No jobs won yet',
+                        icon: Icons.inbox_outlined,
+                        title: 'No requests yet',
                         message:
-                            'Bid on an open request from the Feed tab. Once a customer accepts, it lands here.',
+                            'Your posted jobs and their progress will show up here.',
                       )
                     else
                       for (final job in jobs)
-                        JobListCard(
-                          job: job,
-                          forTechnician: true,
-                          onTap: () => _openJob(job),
-                        ),
+                        JobListCard(job: job, onTap: () => _openJob(job)),
+                    const SizedBox(height: 4),
+                    OutlineButton(
+                      label: 'Start a new request',
+                      icon: Icons.add,
+                      onPressed: _openPostJob,
+                    ),
                   ],
                 ],
               );
@@ -118,11 +124,10 @@ class _TechnicianAcceptedJobsScreenState
   }
 }
 
-class _WonSummary extends StatelessWidget {
-  const _WonSummary({required this.total, required this.live});
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.count});
 
-  final int total;
-  final int live;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +139,7 @@ class _WonSummary extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            '$total',
+            '$count',
             style: const TextStyle(
               fontSize: 35,
               fontWeight: FontWeight.w700,
@@ -147,16 +152,14 @@ class _WonSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  total == 1 ? 'job won so far' : 'jobs won so far',
+                  count == 1 ? 'request with InnSelf' : 'requests with InnSelf',
                   style: AppText.cardTitleLarge.copyWith(
                     color: AppColors.accentForeground,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  live == 0
-                      ? 'Nothing needs your attention right now.'
-                      : '$live still need${live == 1 ? 's' : ''} your attention.',
+                  'Your home, looked after.',
                   style: AppText.bodyMuted.copyWith(
                     color: AppColors.accentForeground,
                   ),

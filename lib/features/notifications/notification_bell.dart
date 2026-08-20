@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/buttons.dart';
 import 'notifications_repository.dart';
 import 'screens/notifications_screen.dart';
 
-/// Bell icon with an unread-count badge, used in both home screens'
-/// AppBars. Refreshes its count each time it's built and after returning
-/// from the notifications list (no realtime subscription -- simple polling
-/// on navigation is enough for this).
+/// Round bell button with the coral unread marker, sitting at the end of
+/// each home screen's header. Refreshes its count on build and again
+/// after returning from the notifications list (no realtime
+/// subscription -- polling on navigation is enough for this).
 class NotificationBell extends StatefulWidget {
   const NotificationBell({super.key});
 
@@ -39,14 +40,11 @@ class _NotificationBellState extends State<NotificationBell> {
       future: _unreadCountFuture,
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
-        return IconButton(
+        return CircleIconButton(
+          icon: Icons.notifications_none_rounded,
           onPressed: _open,
           tooltip: 'Notifications',
-          icon: Badge(
-            label: Text('$count'),
-            isLabelVisible: count > 0,
-            child: const Icon(Icons.notifications_outlined),
-          ),
+          showDot: count > 0,
         );
       },
     );

@@ -41,6 +41,21 @@ class BidsRepository {
         .toList();
   }
 
+  /// How many bids each of these jobs has attracted, in one round trip.
+  /// The customer home screen needs counts across several open jobs at
+  /// once, and a per-job query would be a request each.
+  Future<Map<String, int>> fetchBidCounts(List<String> jobIds) async {
+    if (jobIds.isEmpty) return {};
+    final rows =
+        await supabase.from('bids').select('job_id').inFilter('job_id', jobIds);
+    final counts = <String, int>{};
+    for (final row in rows as List) {
+      final jobId = (row as Map<String, dynamic>)['job_id'] as String;
+      counts[jobId] = (counts[jobId] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   Future<String> fetchTechnicianIdForBid(String bidId) async {
     final data =
         await supabase.from('bids').select('technician_id').eq('id', bidId).single();
