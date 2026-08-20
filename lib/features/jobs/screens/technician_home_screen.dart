@@ -4,6 +4,7 @@ import '../../../models/category.dart';
 import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
+import '../../notifications/notification_bell.dart';
 import '../../payments/screens/technician_wallet_screen.dart';
 import '../../profile/profile_repository.dart';
 import '../../reviews/screens/technician_ratings_screen.dart';
@@ -71,6 +72,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
       appBar: AppBar(
         title: const Text('Job Feed'),
         actions: [
+          const NotificationBell(),
           IconButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(

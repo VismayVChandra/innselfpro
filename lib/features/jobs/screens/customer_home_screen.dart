@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
+import '../../notifications/notification_bell.dart';
 import '../jobs_repository.dart';
 import 'job_detail_screen.dart';
 import 'post_job_screen.dart';
@@ -46,6 +47,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       appBar: AppBar(
         title: const Text('My Requests'),
         actions: [
+          const NotificationBell(),
           IconButton(
             onPressed: () => AuthRepository().signOut(),
             icon: const Icon(Icons.logout),
