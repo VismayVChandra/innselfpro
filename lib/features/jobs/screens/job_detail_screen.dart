@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/bid.dart';
+import '../../../models/dispute.dart';
 import '../../../models/job.dart';
 import '../../../models/payment.dart';
 import '../../../models/profile.dart';
 import '../../../models/review.dart';
 import '../../bids/bids_repository.dart';
+import '../../disputes/disputes_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../reviews/reviews_repository.dart';
@@ -31,6 +33,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _paymentsRepository = PaymentsRepository();
   final _paymentService = PaymentService();
   final _reviewsRepository = ReviewsRepository();
+  final _disputesRepository = DisputesRepository();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _reviewCommentController = TextEditingController();
@@ -40,6 +43,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<Bid?>? _myBidFuture;
   Future<Payment?>? _paymentFuture;
   Future<Review?>? _reviewFuture;
+  Future<Dispute?>? _disputeFuture;
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
   bool _isUpdatingStatus = false;
@@ -47,6 +51,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isConfirmingPayment = false;
   int _selectedRating = 0;
   bool _isSubmittingReview = false;
+  bool _isFlagging = false;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -62,8 +67,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
         _reviewFuture = _reviewsRepository.fetchReviewForJob(_job.id);
       }
+      if (_job.status != 'open') {
+        _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
+      }
     } else if (_isTechnician) {
       _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
+      if (_job.status != 'open') {
+        _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
+      }
     }
   }
 
@@ -208,6 +219,48 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
+  Future<void> _showFlagDialog() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Flag an issue'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'What went wrong?'),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    setState(() => _isFlagging = true);
+    try {
+      await _disputesRepository.flagJob(jobId: _job.id, reason: reason);
+      if (!mounted) return;
+      setState(() {
+        _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not flag job: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isFlagging = false);
+    }
+  }
+
   Future<void> _acceptBid(Bid bid) async {
     setState(() => _acceptingBidId = bid.id);
     try {
@@ -326,8 +379,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return const SizedBox.shrink();
         }
 
+        Widget statusWidget;
         if (_job.status == 'bid_accepted') {
-          return FilledButton(
+          statusWidget = FilledButton(
             onPressed: _isUpdatingStatus ? null : _startJob,
             child: _isUpdatingStatus
                 ? const SizedBox(
@@ -337,9 +391,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   )
                 : const Text('Start job'),
           );
-        }
-        if (_job.status == 'in_progress') {
-          return FilledButton(
+        } else if (_job.status == 'in_progress') {
+          statusWidget = FilledButton(
             onPressed: _isUpdatingStatus ? null : _completeJob,
             child: _isUpdatingStatus
                 ? const SizedBox(
@@ -349,25 +402,33 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   )
                 : const Text('Mark completed'),
           );
+        } else if (_job.status == 'completed') {
+          statusWidget = const Text('You completed this job.');
+        } else {
+          statusWidget = const SizedBox.shrink();
         }
-        if (_job.status == 'completed') {
-          return const Text('You completed this job.');
-        }
-        return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            statusWidget,
+            const SizedBox(height: 24),
+            _buildDisputeSection(),
+          ],
+        );
       },
     );
   }
 
   Widget _buildCustomerSection() {
     if (_job.status != 'open') {
+      Widget statusWidget;
       if (_job.status == 'bid_accepted') {
-        return const Text('A technician has been assigned and will begin work soon.');
-      }
-      if (_job.status == 'in_progress') {
-        return const Text('Your technician is currently working on this job.');
-      }
-      if (_job.status == 'completed') {
-        return Column(
+        statusWidget = const Text('A technician has been assigned and will begin work soon.');
+      } else if (_job.status == 'in_progress') {
+        statusWidget = const Text('Your technician is currently working on this job.');
+      } else if (_job.status == 'completed') {
+        statusWidget = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildPaymentSection(),
@@ -375,8 +436,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             _buildReviewSection(),
           ],
         );
+      } else {
+        statusWidget = const SizedBox.shrink();
       }
-      return const SizedBox.shrink();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statusWidget,
+          const SizedBox(height: 24),
+          _buildDisputeSection(),
+        ],
+      );
     }
     return FutureBuilder<List<Bid>>(
       future: _bidsFuture,
@@ -519,6 +590,47 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   : const Text('Submit review'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDisputeSection() {
+    return FutureBuilder<Dispute?>(
+      future: _disputeFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Could not load dispute status: ${snapshot.error}');
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final dispute = snapshot.data;
+        if (dispute != null) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dispute flagged (${dispute.status})',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(dispute.reason),
+                ],
+              ),
+            ),
+          );
+        }
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _isFlagging ? null : _showFlagDialog,
+            icon: const Icon(Icons.flag_outlined),
+            label: const Text('Flag an issue'),
+          ),
         );
       },
     );
