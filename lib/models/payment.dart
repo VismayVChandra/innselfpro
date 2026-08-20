@@ -5,6 +5,7 @@ class Payment {
   final String status;
   final String? razorpayPaymentId;
   final DateTime? paidAt;
+  final String? jobCategoryName;
 
   const Payment({
     required this.id,
@@ -13,6 +14,7 @@ class Payment {
     required this.status,
     this.razorpayPaymentId,
     this.paidAt,
+    this.jobCategoryName,
   });
 
   factory Payment.fromMap(Map<String, dynamic> map) => Payment(
@@ -22,5 +24,7 @@ class Payment {
         status: map['status'] as String,
         razorpayPaymentId: map['razorpay_payment_id'] as String?,
         paidAt: map['paid_at'] == null ? null : DateTime.parse(map['paid_at'] as String),
+        jobCategoryName: (map['jobs']
+            as Map<String, dynamic>?)?['categories']?['name'] as String?,
       );
 }

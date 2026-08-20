@@ -22,4 +22,17 @@ class PaymentsRepository {
     if (data == null) return null;
     return Payment.fromMap(data);
   }
+
+  Future<List<Payment>> fetchMyEarnings() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('payments')
+        .select('*, jobs(categories(name))')
+        .eq('technician_id', uid)
+        .eq('status', 'paid')
+        .order('paid_at', ascending: false);
+    return (data as List)
+        .map((e) => Payment.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
 }

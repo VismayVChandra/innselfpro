@@ -4,6 +4,7 @@ import '../../../models/category.dart';
 import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
+import '../../payments/screens/technician_wallet_screen.dart';
 import '../../profile/profile_repository.dart';
 import '../../reviews/screens/technician_ratings_screen.dart';
 import '../jobs_repository.dart';
@@ -85,6 +86,13 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
             ),
             icon: const Icon(Icons.star_outline),
             tooltip: 'My Ratings',
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TechnicianWalletScreen()),
+            ),
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            tooltip: 'Wallet',
           ),
           IconButton(
             onPressed: () => AuthRepository().signOut(),
