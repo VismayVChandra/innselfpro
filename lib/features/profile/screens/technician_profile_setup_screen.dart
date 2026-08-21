@@ -9,8 +9,11 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../../models/category.dart';
 import '../../../models/profile.dart';
+import '../../jobs/jobs_repository.dart';
 import '../profile_repository.dart';
+import '../widgets/skills_selector.dart';
 
 class TechnicianProfileSetupScreen extends StatefulWidget {
   const TechnicianProfileSetupScreen({super.key, required this.onProfileCreated});
@@ -28,11 +31,13 @@ class _TechnicianProfileSetupScreenState
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _skillsController = TextEditingController();
   final _serviceAreaController = TextEditingController();
   final _idNumberController = TextEditingController();
   final _profileRepository = ProfileRepository();
+  late final Future<List<Category>> _categoriesFuture =
+      JobsRepository().fetchCategories();
 
+  final Set<int> _selectedSkillCategoryIds = {};
   File? _kycDocument;
   bool _isLoading = false;
 
@@ -41,7 +46,6 @@ class _TechnicianProfileSetupScreenState
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _skillsController.dispose();
     _serviceAreaController.dispose();
     _idNumberController.dispose();
     super.dispose();
@@ -59,6 +63,12 @@ class _TechnicianProfileSetupScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedSkillCategoryIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick at least one skill')),
+      );
+      return;
+    }
     if (_kycDocument == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Upload a KYC ID document photo')),
@@ -76,9 +86,9 @@ class _TechnicianProfileSetupScreenState
       final documentPath =
           await _profileRepository.uploadKycDocument(_kycDocument!);
       await _profileRepository.upsertTechnicianDetails(
-        skills: _skillsController.text.trim(),
         serviceArea: _serviceAreaController.text.trim(),
       );
+      await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
       await _profileRepository.upsertTechnicianKyc(
         idNumber: _idNumberController.text.trim(),
         documentPath: documentPath,
@@ -158,11 +168,27 @@ class _TechnicianProfileSetupScreenState
                 ),
                 const SectionHeading(title: 'Your work'),
                 const FieldLabel('Skills'),
-                _field(
-                  controller: _skillsController,
-                  hint: 'e.g. Electrician, AC Repair',
-                  icon: Icons.handyman_outlined,
-                  capitalization: TextCapitalization.words,
+                FutureBuilder<List<Category>>(
+                  future: _categoriesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return ErrorView(
+                        message: 'Could not load categories: ${snapshot.error}',
+                      );
+                    }
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const LoadingView(height: 60);
+                    }
+                    return SkillsSelector(
+                      categories: snapshot.data!,
+                      selectedIds: _selectedSkillCategoryIds,
+                      onToggle: (id) => setState(() {
+                        if (!_selectedSkillCategoryIds.remove(id)) {
+                          _selectedSkillCategoryIds.add(id);
+                        }
+                      }),
+                    );
+                  },
                 ),
                 const FieldLabel('Service area', topPadding: 20),
                 _field(

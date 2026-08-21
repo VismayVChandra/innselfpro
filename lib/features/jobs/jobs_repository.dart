@@ -56,10 +56,14 @@ class JobsRepository {
         .toList();
   }
 
-  Future<List<Job>> fetchOpenJobsFeed({int? categoryId, String? area}) async {
+  /// [categoryIds] narrows to any of the given categories -- used both
+  /// for a single explicit category tap (one id) and for defaulting a
+  /// technician's feed to their own skill categories (several ids).
+  /// Null/empty means no category filter at all.
+  Future<List<Job>> fetchOpenJobsFeed({List<int>? categoryIds, String? area}) async {
     var query = supabase.from('jobs').select(_jobSelect).eq('status', 'open');
-    if (categoryId != null) {
-      query = query.eq('category_id', categoryId);
+    if (categoryIds != null && categoryIds.isNotEmpty) {
+      query = query.inFilter('category_id', categoryIds);
     }
     if (area != null && area.trim().isNotEmpty) {
       query = query.ilike('location', '%${area.trim()}%');
@@ -102,8 +106,19 @@ class JobsRepository {
     await supabase.from('jobs').update({'status': 'in_progress'}).eq('id', jobId);
   }
 
-  Future<void> completeJob(String jobId) async {
-    await supabase.from('jobs').update({'status': 'completed'}).eq('id', jobId);
+  /// [completionPhoto] is optional proof-of-work, uploaded under the
+  /// calling (technician's) own folder in the same bucket job photos
+  /// already use -- its existing storage policies only check the
+  /// upload path's leading uid, not the caller's role.
+  Future<void> completeJob(String jobId, {File? completionPhoto}) async {
+    String? photoUrl;
+    if (completionPhoto != null) {
+      photoUrl = await _uploadJobPhoto(completionPhoto);
+    }
+    await supabase.from('jobs').update({
+      'status': 'completed',
+      'completion_photo_url': ?photoUrl,
+    }).eq('id', jobId);
   }
 
   /// Cancels a job while it's still open, before any bid is accepted.

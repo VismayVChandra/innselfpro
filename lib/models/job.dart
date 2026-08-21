@@ -13,6 +13,10 @@ class Job {
   /// possible" rather than an unset value.
   final DateTime? scheduledFor;
 
+  /// Set by the technician when marking the job complete -- proof of
+  /// work, distinct from photoUrl (the customer's original job photo).
+  final String? completionPhotoUrl;
+
   final DateTime createdAt;
 
   const Job({
@@ -26,6 +30,7 @@ class Job {
     required this.status,
     this.acceptedBidId,
     this.scheduledFor,
+    this.completionPhotoUrl,
     required this.createdAt,
   });
 
@@ -44,6 +49,7 @@ class Job {
         scheduledFor: map['scheduled_for'] == null
             ? null
             : DateTime.parse(map['scheduled_for'] as String),
+        completionPhotoUrl: map['completion_photo_url'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 }

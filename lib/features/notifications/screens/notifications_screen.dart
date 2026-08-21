@@ -7,8 +7,8 @@ import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/app_notification.dart';
-import '../../jobs/screens/job_detail_screen.dart';
 import '../../jobs/jobs_repository.dart';
+import '../../jobs/screens/job_detail_screen.dart';
 import '../../profile/profile_repository.dart';
 import '../notifications_repository.dart';
 
@@ -23,27 +23,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _repository = NotificationsRepository();
   final _jobsRepository = JobsRepository();
   final _profileRepository = ProfileRepository();
-  late Future<List<AppNotification>> _future;
+  late final Stream<List<AppNotification>> _notificationsStream =
+      _repository.streamMyNotifications();
   String? _openingJobId;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _repository.fetchMyNotifications();
-  }
-
-  Future<void> _refresh() async {
-    setState(() => _future = _repository.fetchMyNotifications());
-    await _future;
-  }
 
   Future<void> _onTap(AppNotification notification) async {
     if (!notification.isRead) {
+      // No manual refetch needed -- the realtime stream re-emits once
+      // this update commits.
       await _repository.markAsRead(notification.id);
-      if (!mounted) return;
-      setState(() {
-        _future = _repository.fetchMyNotifications();
-      });
     }
     if (notification.jobId == null) return;
     setState(() => _openingJobId = notification.id);
@@ -106,50 +94,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: AppColors.primary,
-          backgroundColor: AppColors.card,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 10, bottom: 32),
-            child: FutureBuilder<List<AppNotification>>(
-              future: _future,
-              builder: (context, snapshot) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const TopBar(
-                      eyebrow: 'YOUR INNSELF',
-                      title: 'Notifications',
-                    ),
-                    if (snapshot.hasError)
-                      ErrorView(
-                        message:
-                            'Could not load notifications: ${snapshot.error}',
-                        onRetry: _refresh,
-                      )
-                    else if (snapshot.connectionState != ConnectionState.done)
-                      const LoadingView()
-                    else if (snapshot.data!.isEmpty)
-                      const EmptyView(
-                        icon: Icons.notifications_none_rounded,
-                        title: 'Nothing yet',
-                        message:
-                            'Bids, status changes and payments will show up here.',
-                      )
-                    else
-                      for (final notification in snapshot.data!)
-                        _NotificationRow(
-                          notification: notification,
-                          style: _styleFor(notification.type),
-                          isOpening: _openingJobId == notification.id,
-                          onTap: () => _onTap(notification),
-                        ),
-                  ],
-                );
-              },
-            ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 10, bottom: 32),
+          child: StreamBuilder<List<AppNotification>>(
+            stream: _notificationsStream,
+            builder: (context, snapshot) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const TopBar(
+                    eyebrow: 'YOUR INNSELF',
+                    title: 'Notifications',
+                  ),
+                  if (snapshot.hasError)
+                    ErrorView(
+                      message:
+                          'Could not load notifications: ${snapshot.error}',
+                    )
+                  else if (!snapshot.hasData)
+                    const LoadingView()
+                  else if (snapshot.data!.isEmpty)
+                    const EmptyView(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'Nothing yet',
+                      message:
+                          'Bids, status changes and payments will show up here.',
+                    )
+                  else
+                    for (final notification in snapshot.data!)
+                      _NotificationRow(
+                        notification: notification,
+                        style: _styleFor(notification.type),
+                        isOpening: _openingJobId == notification.id,
+                        onTap: () => _onTap(notification),
+                      ),
+                ],
+              );
+            },
           ),
         ),
       ),

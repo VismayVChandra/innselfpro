@@ -11,6 +11,7 @@ import '../../../models/profile.dart';
 import '../../../models/review.dart';
 import '../../../models/technician_details.dart';
 import '../../auth/auth_repository.dart';
+import '../../jobs/jobs_repository.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../payments/payments_repository.dart';
@@ -27,12 +28,14 @@ class _TechnicianSummary {
     required this.payments,
     required this.reviews,
     required this.details,
+    required this.skillNames,
     required this.unreadCount,
   });
 
   final List<Payment> payments;
   final List<Review> reviews;
   final TechnicianDetails? details;
+  final List<String> skillNames;
   final int unreadCount;
 
   double get totalEarnings =>
@@ -73,10 +76,17 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
     final reviews = await ReviewsRepository().fetchReviewsForTechnician();
     final details = await ProfileRepository().fetchMyTechnicianDetails();
     final unread = await NotificationsRepository().fetchUnreadCount();
+    final skillIds = await ProfileRepository().fetchMySkillCategoryIds();
+    final categories = await JobsRepository().fetchCategories();
+    final skillNames = categories
+        .where((c) => skillIds.contains(c.id))
+        .map((c) => c.name)
+        .toList();
     return _TechnicianSummary(
       payments: payments,
       reviews: reviews,
       details: details,
+      skillNames: skillNames,
       unreadCount: unread,
     );
   }
@@ -244,9 +254,9 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                             SettingsRow(
                               icon: Icons.handyman_outlined,
                               label: 'Skills',
-                              value: summary.details?.skills?.isNotEmpty == true
-                                  ? summary.details!.skills!
-                                  : 'Not set',
+                              value: summary.skillNames.isEmpty
+                                  ? 'Not set'
+                                  : summary.skillNames.join(', '),
                             ),
                             SettingsRow(
                               icon: Icons.map_outlined,

@@ -54,6 +54,9 @@ class BidsRepository {
   }
 
   /// Average rating and review count per technician, in one round trip.
+  /// Filtered to reviewer_role = 'customer' -- a technician's own
+  /// reviews of their customers also carry their technician_id, and
+  /// would otherwise pollute their own rating.
   Future<Map<String, ({double average, int count})>> fetchTechnicianRatings(
     List<String> technicianIds,
   ) async {
@@ -61,7 +64,8 @@ class BidsRepository {
     final rows = await supabase
         .from('reviews')
         .select('technician_id, rating')
-        .inFilter('technician_id', technicianIds);
+        .inFilter('technician_id', technicianIds)
+        .eq('reviewer_role', 'customer');
     final byTechnician = <String, List<int>>{};
     for (final row in rows as List) {
       final map = row as Map<String, dynamic>;

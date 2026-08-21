@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/photo_picker.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/bid.dart';
@@ -48,21 +52,25 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _reviewCommentController = TextEditingController();
+  final _customerReviewCommentController = TextEditingController();
 
   late Job _job;
   Future<List<Bid>>? _bidsFuture;
   Future<Bid?>? _myBidFuture;
   Future<Payment?>? _paymentFuture;
   Future<Review?>? _reviewFuture;
+  Future<Review?>? _customerReviewFuture;
   Future<Dispute?>? _disputeFuture;
 
   /// The other party's contact card once a bid is accepted -- the
-  /// technician for a customer, the customer for the winning technician.
-  /// Set in initState for the customer (their own job, always safe); set
-  /// lazily inside the technician branch only after confirming their bid
-  /// is the accepted one, so a technician whose bid lost never sees the
-  /// customer's number.
-  Future<Profile?>? _contactFuture;
+  /// technician for a customer, the customer for the winning technician
+  /// -- plus that party's own rating, so it's a reminder of who you're
+  /// working with rather than just a phone number. Set in initState for
+  /// the customer (their own job, always safe); set lazily inside the
+  /// technician branch only after confirming their bid is the accepted
+  /// one, so a technician whose bid lost never sees the customer's
+  /// number.
+  Future<({Profile profile, double? rating, int reviewCount})?>? _contactFuture;
 
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
@@ -72,9 +80,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isMarkingCashPaid = false;
   int _selectedRating = 0;
   bool _isSubmittingReview = false;
+  int _selectedCustomerRating = 0;
+  bool _isSubmittingCustomerReview = false;
   bool _isFlagging = false;
   bool _isCancelling = false;
   bool _isWithdrawingBid = false;
+  File? _completionPhoto;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -88,7 +99,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
       if (_job.status == 'completed') {
         _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
-        _reviewFuture = _reviewsRepository.fetchReviewForJob(_job.id);
+        _reviewFuture =
+            _reviewsRepository.fetchReviewForJob(_job.id, reviewerRole: 'customer');
       }
       if (_job.status != 'open') {
         _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
@@ -109,6 +121,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _amountController.dispose();
     _noteController.dispose();
     _reviewCommentController.dispose();
+    _customerReviewCommentController.dispose();
     _paymentService.dispose();
     super.dispose();
   }
@@ -119,10 +132,35 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     setState(() => _job = updated);
   }
 
-  Future<Profile?> _loadTechnicianContact() async {
+  Future<({Profile profile, double? rating, int reviewCount})?> _loadTechnicianContact() async {
     final technicianId =
         await _bidsRepository.fetchTechnicianIdForBid(_job.acceptedBidId!);
-    return _profileRepository.fetchProfileById(technicianId);
+    final profile = await _profileRepository.fetchProfileById(technicianId);
+    if (profile == null) return null;
+    final ratings = await _bidsRepository.fetchTechnicianRatings([technicianId]);
+    final rating = ratings[technicianId];
+    return (profile: profile, rating: rating?.average, reviewCount: rating?.count ?? 0);
+  }
+
+  Future<({Profile profile, double? rating, int reviewCount})?> _loadCustomerContact() async {
+    final profile = await _profileRepository.fetchProfileById(_job.customerId);
+    if (profile == null) return null;
+    final rating = await _reviewsRepository.fetchCustomerRating(_job.customerId);
+    return (
+      profile: profile,
+      rating: rating?.average,
+      reviewCount: rating?.count ?? 0,
+    );
+  }
+
+  Future<void> _pickCompletionPhoto() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() => _completionPhoto = File(picked.path));
+    }
   }
 
   Future<void> _cancelJob() async {
@@ -326,7 +364,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _completeJob() async {
     setState(() => _isUpdatingStatus = true);
     try {
-      await _jobsRepository.completeJob(_job.id);
+      await _jobsRepository.completeJob(_job.id, completionPhoto: _completionPhoto);
       await _refreshJob();
     } catch (e) {
       if (!mounted) return;
@@ -353,7 +391,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _reviewFuture = _reviewsRepository.fetchReviewForJob(_job.id);
+        _reviewFuture =
+            _reviewsRepository.fetchReviewForJob(_job.id, reviewerRole: 'customer');
       });
     } catch (e) {
       if (!mounted) return;
@@ -362,6 +401,32 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSubmittingReview = false);
+    }
+  }
+
+  Future<void> _submitCustomerReview() async {
+    setState(() => _isSubmittingCustomerReview = true);
+    try {
+      await _reviewsRepository.submitTechnicianReview(
+        jobId: _job.id,
+        customerId: _job.customerId,
+        rating: _selectedCustomerRating,
+        comment: _customerReviewCommentController.text.trim().isEmpty
+            ? null
+            : _customerReviewCommentController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _customerReviewFuture =
+            _reviewsRepository.fetchReviewForJob(_job.id, reviewerRole: 'technician');
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not submit review: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmittingCustomerReview = false);
     }
   }
 
@@ -477,6 +542,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               if (_job.photoUrl != null) ...[
                 const SizedBox(height: 13),
                 _JobPhoto(url: _job.photoUrl!),
+              ],
+              if (_job.completionPhotoUrl != null) ...[
+                const SectionHeading(title: 'Completion photo', topPadding: 20),
+                _JobPhoto(url: _job.completionPhotoUrl!),
               ],
               if (_isTechnician) _buildTechnicianSection(),
               if (_isOwningCustomer) _buildCustomerSection(),
@@ -602,9 +671,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         // From here on myBid.status == 'accepted' is confirmed, so it's
         // safe to load the customer's contact details for this job --
         // memoized so it isn't re-fetched on every rebuild.
-        _contactFuture ??= _profileRepository.fetchProfileById(_job.customerId);
+        _contactFuture ??= _loadCustomerContact();
+        if (_job.status == 'completed') {
+          _customerReviewFuture ??=
+              _reviewsRepository.fetchReviewForJob(_job.id, reviewerRole: 'technician');
+        }
 
         Widget? action;
+        Widget? photoPicker;
         if (_job.status == 'bid_accepted') {
           action = PrimaryButton(
             label: 'Start this job',
@@ -612,6 +686,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             onPressed: _startJob,
           );
         } else if (_job.status == 'in_progress') {
+          photoPicker = JobPhotoPicker(
+            photo: _completionPhoto,
+            onPick: _pickCompletionPhoto,
+            onClear: () => setState(() => _completionPhoto = null),
+            title: 'Add proof of work',
+            subtitle: 'Optional, but reassures the customer the job is done.',
+          );
           action = PrimaryButton(
             label: 'Mark as completed',
             isLoading: _isUpdatingStatus,
@@ -622,12 +703,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FutureBuilder<Profile?>(
+            FutureBuilder<({Profile profile, double? rating, int reviewCount})?>(
               future: _contactFuture,
               builder: (context, contactSnapshot) {
                 final contact = contactSnapshot.data;
                 if (contact == null) return const SizedBox.shrink();
-                return _ContactCard(label: 'Your customer', profile: contact);
+                return _ContactCard(
+                  label: 'Your customer',
+                  profile: contact.profile,
+                  rating: contact.rating,
+                  reviewCount: contact.reviewCount,
+                );
               },
             ),
             Padding(
@@ -660,6 +746,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ),
               ),
             ),
+            if (photoPicker != null) ...[const SizedBox(height: 16), photoPicker],
             if (action != null) ...[const SizedBox(height: 20), action],
             if (_job.status == 'completed') ...[
               const SizedBox(height: 13),
@@ -671,6 +758,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 message:
                     'Once the customer pays, it will show up in your wallet.',
               ),
+              _buildCustomerReviewSection(),
             ],
             _buildDisputeSection(),
           ],
@@ -711,12 +799,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_job.acceptedBidId != null)
-            FutureBuilder<Profile?>(
+            FutureBuilder<({Profile profile, double? rating, int reviewCount})?>(
               future: _contactFuture,
               builder: (context, contactSnapshot) {
                 final contact = contactSnapshot.data;
                 if (contact == null) return const SizedBox.shrink();
-                return _ContactCard(label: 'Your technician', profile: contact);
+                return _ContactCard(
+                  label: 'Your technician',
+                  profile: contact.profile,
+                  rating: contact.rating,
+                  reviewCount: contact.reviewCount,
+                );
               },
             ),
           if (notice != null) Padding(padding: const EdgeInsets.only(top: 13), child: notice),
@@ -923,6 +1016,68 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               margin: EdgeInsets.zero,
               isLoading: _isSubmittingReview,
               onPressed: _selectedRating == 0 ? null : _submitReview,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The technician's side of two-way reviews: rating the customer back
+  /// once the job is done. Mirrors _buildReviewSection exactly, just in
+  /// the other direction.
+  Widget _buildCustomerReviewSection() {
+    return FutureBuilder<Review?>(
+      future: _customerReviewFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorView(message: 'Could not load review: ${snapshot.error}');
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const LoadingView(height: 140);
+        }
+        final review = snapshot.data;
+        if (review != null) {
+          return _SectionCard(
+            title: 'Your rating of the customer',
+            children: [
+              StarRow(rating: review.rating, size: 20),
+              if (review.comment != null && review.comment!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '"${review.comment!}"',
+                  style: AppText.body.copyWith(fontStyle: FontStyle.italic),
+                ),
+              ],
+            ],
+          );
+        }
+        return _SectionCard(
+          title: 'Rate this customer',
+          subtitle: 'Helps other technicians know who they\'re working with.',
+          children: [
+            Center(
+              child: StarRow(
+                rating: _selectedCustomerRating,
+                onChanged: (r) => setState(() => _selectedCustomerRating = r),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _customerReviewCommentController,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              style: AppText.body.copyWith(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Anything you want to add? (optional)',
+              ),
+            ),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: 'Submit rating',
+              margin: EdgeInsets.zero,
+              isLoading: _isSubmittingCustomerReview,
+              onPressed: _selectedCustomerRating == 0 ? null : _submitCustomerReview,
             ),
           ],
         );
@@ -1405,10 +1560,17 @@ class _NoticeCard extends StatelessWidget {
 /// accepted. Both roles reuse this -- only the label and the profile
 /// fetched differ.
 class _ContactCard extends StatelessWidget {
-  const _ContactCard({required this.label, required this.profile});
+  const _ContactCard({
+    required this.label,
+    required this.profile,
+    this.rating,
+    this.reviewCount = 0,
+  });
 
   final String label;
   final Profile profile;
+  final double? rating;
+  final int reviewCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1445,7 +1607,20 @@ class _ContactCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(profile.fullName, style: AppText.cardTitleLarge),
                   const SizedBox(height: 3),
-                  Text(profile.phone, style: AppText.bodyMuted),
+                  Row(
+                    children: [
+                      Text(profile.phone, style: AppText.bodyMuted),
+                      if (reviewCount > 0) ...[
+                        Text('  ·  ', style: AppText.bodyMuted),
+                        const Icon(Icons.star_rounded, size: 12, color: AppColors.star),
+                        const SizedBox(width: 2),
+                        Text(
+                          rating!.toStringAsFixed(1),
+                          style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

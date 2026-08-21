@@ -39,7 +39,13 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
   final _areaController = TextEditingController();
 
   List<Category> _categories = [];
+  Set<int> _mySkillCategoryIds = {};
+
+  /// null = "My skills" (the default); 0 = "All"; anything else = that
+  /// one category. 0 is a safe sentinel since Postgres serial ids start
+  /// at 1.
   int? _selectedCategoryId;
+
   Future<List<Job>>? _feedFuture;
   bool _initializing = true;
   Object? _initError;
@@ -65,15 +71,15 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
     try {
       final categories = await _jobsRepository.fetchCategories();
       final details = await _profileRepository.fetchMyTechnicianDetails();
+      final skillIds = await _profileRepository.fetchMySkillCategoryIds();
       if (!mounted) return;
       setState(() {
         _categories = categories;
+        _mySkillCategoryIds = skillIds;
         _areaController.text = details?.serviceArea ?? '';
         _initializing = false;
-        _feedFuture = _jobsRepository.fetchOpenJobsFeed(
-          area: _areaController.text,
-        );
       });
+      _applyFilters();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -85,8 +91,14 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
 
   void _applyFilters() {
     setState(() {
+      List<int>? categoryIds;
+      if (_selectedCategoryId == null) {
+        categoryIds = _mySkillCategoryIds.isEmpty ? null : _mySkillCategoryIds.toList();
+      } else if (_selectedCategoryId != 0) {
+        categoryIds = [_selectedCategoryId!];
+      }
       _feedFuture = _jobsRepository.fetchOpenJobsFeed(
-        categoryId: _selectedCategoryId,
+        categoryIds: categoryIds,
         area: _areaController.text,
       );
     });
@@ -298,7 +310,8 @@ class _AreaPanel extends StatelessWidget {
   }
 }
 
-/// Horizontally scrolling category filter, "All" first.
+/// Horizontally scrolling category filter: "My skills" (the default),
+/// then "All", then every individual category.
 class _CategoryFilter extends StatelessWidget {
   const _CategoryFilter({
     required this.categories,
@@ -319,9 +332,15 @@ class _CategoryFilter extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: kGutter),
         children: [
           ChoicePill(
-            label: 'All',
+            label: 'My skills',
             selected: selectedId == null,
             onTap: () => onSelected(null),
+          ),
+          const SizedBox(width: 8),
+          ChoicePill(
+            label: 'All',
+            selected: selectedId == 0,
+            onTap: () => onSelected(0),
           ),
           for (final category in categories) ...[
             const SizedBox(width: 8),

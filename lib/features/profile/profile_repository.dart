@@ -81,15 +81,39 @@ class ProfileRepository {
   }
 
   Future<void> upsertTechnicianDetails({
-    required String skills,
     required String serviceArea,
   }) async {
     final uid = supabase.auth.currentUser!.id;
     await supabase.from('technician_details').upsert({
       'profile_id': uid,
-      'skills': skills,
       'service_area': serviceArea,
     });
+  }
+
+  /// Category ids this technician has marked as a skill.
+  Future<Set<int>> fetchMySkillCategoryIds() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('technician_skills')
+        .select('category_id')
+        .eq('profile_id', uid);
+    return (data as List)
+        .map((e) => (e as Map<String, dynamic>)['category_id'] as int)
+        .toSet();
+  }
+
+  /// Replaces this technician's full skill set with exactly the given
+  /// categories -- simpler and safer than diffing add/remove, and this
+  /// is always called with the complete intended set from a multi-select
+  /// form, never a partial update.
+  Future<void> setMySkillCategories(Set<int> categoryIds) async {
+    final uid = supabase.auth.currentUser!.id;
+    await supabase.from('technician_skills').delete().eq('profile_id', uid);
+    if (categoryIds.isEmpty) return;
+    await supabase.from('technician_skills').insert([
+      for (final categoryId in categoryIds)
+        {'profile_id': uid, 'category_id': categoryId},
+    ]);
   }
 
   Future<void> upsertTechnicianKyc({

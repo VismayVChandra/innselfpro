@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
+import '../../../models/category.dart';
 import '../../../models/profile.dart';
+import '../../jobs/jobs_repository.dart';
 import '../profile_repository.dart';
+import '../widgets/skills_selector.dart';
 
 /// Lets a signed-in user change their name, phone and address -- plus
 /// skills and service area for a technician. Both roles share this one
@@ -31,10 +34,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _skillsController = TextEditingController();
   final _serviceAreaController = TextEditingController();
   final _profileRepository = ProfileRepository();
 
+  List<Category> _categories = [];
+  final Set<int> _selectedSkillCategoryIds = {};
   bool _isLoadingDetails = true;
   bool _isSaving = false;
   Object? _loadError;
@@ -56,10 +60,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadTechnicianDetails() async {
     try {
+      final categories = await JobsRepository().fetchCategories();
       final details = await _profileRepository.fetchMyTechnicianDetails();
+      final skillIds = await _profileRepository.fetchMySkillCategoryIds();
       if (!mounted) return;
       setState(() {
-        _skillsController.text = details?.skills ?? '';
+        _categories = categories;
+        _selectedSkillCategoryIds
+          ..clear()
+          ..addAll(skillIds);
         _serviceAreaController.text = details?.serviceArea ?? '';
         _isLoadingDetails = false;
       });
@@ -77,13 +86,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _skillsController.dispose();
     _serviceAreaController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isTechnician && _selectedSkillCategoryIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick at least one skill')),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final updated = await _profileRepository.updateProfile(
@@ -93,9 +107,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (_isTechnician) {
         await _profileRepository.upsertTechnicianDetails(
-          skills: _skillsController.text.trim(),
           serviceArea: _serviceAreaController.text.trim(),
         );
+        await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
       }
       if (!mounted) return;
       widget.onSaved(updated);
@@ -176,17 +190,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   else ...[
                     const SectionHeading(title: 'Your work'),
                     const FieldLabel('Skills'),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: kGutter),
-                      child: TextFormField(
-                        controller: _skillsController,
-                        decoration: const InputDecoration(
-                          hintText: 'e.g. Electrician, AC Repair',
-                          prefixIcon: Icon(Icons.handyman_outlined, size: 20),
-                        ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
+                    SkillsSelector(
+                      categories: _categories,
+                      selectedIds: _selectedSkillCategoryIds,
+                      onToggle: (id) => setState(() {
+                        if (!_selectedSkillCategoryIds.remove(id)) {
+                          _selectedSkillCategoryIds.add(id);
+                        }
+                      }),
                     ),
                     const FieldLabel('Service area', topPadding: 20),
                     Padding(

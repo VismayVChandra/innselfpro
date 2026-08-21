@@ -5,6 +5,12 @@ class Review {
   final String technicianId;
   final int rating;
   final String? comment;
+
+  /// Who wrote this review: 'customer' (rating the technician, as in
+  /// the original single-direction design) or 'technician' (rating the
+  /// customer back).
+  final String reviewerRole;
+
   final DateTime createdAt;
   final String? jobCategoryName;
 
@@ -15,6 +21,7 @@ class Review {
     required this.technicianId,
     required this.rating,
     this.comment,
+    required this.reviewerRole,
     required this.createdAt,
     this.jobCategoryName,
   });
@@ -26,8 +33,11 @@ class Review {
         technicianId: map['technician_id'] as String,
         rating: map['rating'] as int,
         comment: map['comment'] as String?,
+        reviewerRole: map['reviewer_role'] as String,
         createdAt: DateTime.parse(map['created_at'] as String),
         jobCategoryName: (map['jobs']
             as Map<String, dynamic>?)?['categories']?['name'] as String?,
       );
+
+  bool get isByCustomer => reviewerRole == 'customer';
 }

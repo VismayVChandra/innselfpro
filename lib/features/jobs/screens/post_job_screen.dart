@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
+import '../../../core/widgets/photo_picker.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/category.dart';
@@ -207,10 +208,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ),
                 ),
                 const FieldLabel('Add a photo', topPadding: 23),
-                _PhotoPicker(
+                JobPhotoPicker(
                   photo: _photo,
                   onPick: _pickPhoto,
                   onClear: () => setState(() => _photo = null),
+                  subtitle: 'Optional, but it helps pros quote accurately.',
                 ),
                 const FieldLabel('Where should they come?', topPadding: 23),
                 Padding(
@@ -428,102 +430,3 @@ class _PickerField extends StatelessWidget {
   }
 }
 
-/// Optional job photo: an invitation while empty, a preview once picked.
-class _PhotoPicker extends StatelessWidget {
-  const _PhotoPicker({
-    required this.photo,
-    required this.onPick,
-    required this.onClear,
-  });
-
-  final File? photo;
-  final VoidCallback onPick;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    if (photo == null) {
-      return AppCard(
-        onTap: onPick,
-        radius: 17,
-        padding: const EdgeInsets.all(13),
-        child: Row(
-          children: [
-            const SoftIcon(Icons.photo_camera_outlined, size: 39, iconSize: 19),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Add a photo', style: AppText.cardTitle),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Optional, but it helps pros quote accurately.',
-                    style: AppText.bodyMuted.copyWith(fontSize: 10.5),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: AppColors.mutedForeground,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: kGutter),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(17),
-            child: Image.file(
-              photo!,
-              height: 170,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-          ),
-          Positioned(
-            top: 10,
-            right: 10,
-            child: Row(
-              children: [
-                _PhotoAction(icon: Icons.edit_outlined, onTap: onPick),
-                const SizedBox(width: 8),
-                _PhotoAction(icon: Icons.close_rounded, onTap: onClear),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoAction extends StatelessWidget {
-  const _PhotoAction({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          width: 34,
-          height: 34,
-          child: Icon(icon, size: 17, color: AppColors.foreground),
-        ),
-      ),
-    );
-  }
-}
