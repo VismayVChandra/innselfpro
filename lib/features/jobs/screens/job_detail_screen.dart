@@ -60,6 +60,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<Payment?>? _paymentFuture;
   Future<Review?>? _reviewFuture;
   Future<Review?>? _customerReviewFuture;
+
+  /// The customer's rating from other technicians, shown to a
+  /// technician before they've even bid -- separate from _contactFuture
+  /// (name/phone), which stays hidden until a bid is accepted.
+  Future<({double average, int count})?>? _customerRatingFuture;
   Future<Dispute?>? _disputeFuture;
 
   /// The other party's contact card once a bid is accepted -- the
@@ -113,6 +118,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (_job.status != 'open') {
         _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
       }
+      // Shown before a bid is even placed, so a technician can judge
+      // whether this customer is worth bidding on -- reviews are
+      // already authenticated-readable (reviews_select_all), so this
+      // needs no new RLS.
+      _customerRatingFuture = _reviewsRepository.fetchCustomerRating(_job.customerId);
     }
   }
 
@@ -547,6 +557,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 const SectionHeading(title: 'Completion photo', topPadding: 20),
                 _JobPhoto(url: _job.completionPhotoUrl!),
               ],
+              if (_isTechnician && _job.status == 'open')
+                FutureBuilder<({double average, int count})?>(
+                  future: _customerRatingFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const SizedBox.shrink();
+                    }
+                    return _CustomerRatingPreview(rating: snapshot.data);
+                  },
+                ),
               if (_isTechnician) _buildTechnicianSection(),
               if (_isOwningCustomer) _buildCustomerSection(),
             ],
@@ -1559,6 +1579,56 @@ class _NoticeCard extends StatelessWidget {
 /// The other party's name, phone and a copy action, shown once a bid is
 /// accepted. Both roles reuse this -- only the label and the profile
 /// fetched differ.
+/// A customer's rating from other technicians, shown on an open job so
+/// a technician can judge whether it's worth bidding on -- before any
+/// bid exists, well before the full contact card (name/phone) would
+/// ever be shown.
+class _CustomerRatingPreview extends StatelessWidget {
+  const _CustomerRatingPreview({required this.rating});
+
+  final ({double average, int count})? rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: AppCard(
+        radius: 19,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const SoftIcon(Icons.person_outline_rounded, size: 40, iconSize: 19),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('ABOUT THIS CUSTOMER', style: AppText.microLabel),
+                  const SizedBox(height: 4),
+                  if (rating == null)
+                    Text('New on InnSelf -- no ratings yet', style: AppText.bodyMuted)
+                  else
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${rating!.average.toStringAsFixed(1)} from ${rating!.count} '
+                          'technician${rating!.count == 1 ? '' : 's'}',
+                          style: AppText.cardTitle,
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ContactCard extends StatelessWidget {
   const _ContactCard({
     required this.label,

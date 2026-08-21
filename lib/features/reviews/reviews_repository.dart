@@ -68,6 +68,21 @@ class ReviewsRepository {
         .toList();
   }
 
+  /// Reviews the signed-in customer has received from technicians. The
+  /// customer-facing counterpart to fetchReviewsForTechnician.
+  Future<List<Review>> fetchReviewsForCustomer() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('reviews')
+        .select('*, jobs(categories(name))')
+        .eq('customer_id', uid)
+        .eq('reviewer_role', 'technician')
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((e) => Review.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// A single customer's average rating from technicians who've worked
   /// with them, so a technician can see who they're dealing with.
   Future<({double average, int count})?> fetchCustomerRating(String customerId) async {

@@ -7,6 +7,8 @@ import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
+import '../../reviews/reviews_repository.dart';
+import '../../reviews/screens/ratings_screen.dart';
 import '../widgets/profile_widgets.dart';
 import 'edit_profile_screen.dart';
 
@@ -28,12 +30,15 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<int> _unreadFuture;
+  late Future<({double average, int count})?> _ratingFuture;
   bool _isDeleting = false;
 
   @override
   void initState() {
     super.initState();
     _unreadFuture = NotificationsRepository().fetchUnreadCount();
+    _ratingFuture =
+        ReviewsRepository().fetchCustomerRating(widget.profile.id);
   }
 
   Future<void> _openNotifications() async {
@@ -44,6 +49,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     setState(() {
       _unreadFuture = NotificationsRepository().fetchUnreadCount();
     });
+  }
+
+  void _openRatings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RatingsScreen(
+          title: 'My rating',
+          raterLabel: 'technicians',
+          emptyMessage:
+              'Technicians can rate you once they have completed a job for you.',
+          fetchReviews: ReviewsRepository().fetchReviewsForCustomer,
+        ),
+      ),
+    );
   }
 
   Future<void> _openEditProfile() async {
@@ -120,6 +139,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     label: 'Edit profile',
                     value: 'Update your name, phone and address',
                     onTap: _openEditProfile,
+                  ),
+                  FutureBuilder<({double average, int count})?>(
+                    future: _ratingFuture,
+                    builder: (context, snapshot) {
+                      final rating = snapshot.data;
+                      return SettingsRow(
+                        icon: Icons.star_outline_rounded,
+                        label: 'My rating',
+                        value: rating == null
+                            ? 'No ratings yet'
+                            : '${rating.average.toStringAsFixed(1)} average from ${rating.count} review${rating.count == 1 ? '' : 's'}',
+                        onTap: _openRatings,
+                      );
+                    },
                   ),
                   FutureBuilder<int>(
                     future: _unreadFuture,

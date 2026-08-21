@@ -17,7 +17,7 @@ import '../../notifications/screens/notifications_screen.dart';
 import '../../payments/payments_repository.dart';
 import '../../payments/screens/technician_wallet_screen.dart';
 import '../../reviews/reviews_repository.dart';
-import '../../reviews/screens/technician_ratings_screen.dart';
+import '../../reviews/screens/ratings_screen.dart';
 import '../profile_repository.dart';
 import '../widgets/profile_widgets.dart';
 import 'edit_profile_screen.dart';
@@ -240,8 +240,14 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                               value: summary.reviews.isEmpty
                                   ? 'No ratings yet'
                                   : '${rating!.toStringAsFixed(1)} average from ${summary.reviews.length} review${summary.reviews.length == 1 ? '' : 's'}',
-                              onTap: () =>
-                                  _push(const TechnicianRatingsScreen()),
+                              onTap: () => _push(RatingsScreen(
+                                title: 'My ratings',
+                                raterLabel: 'customers',
+                                emptyMessage:
+                                    'Customers can rate you once they have paid for a completed job.',
+                                fetchReviews:
+                                    ReviewsRepository().fetchReviewsForTechnician,
+                              )),
                             ),
                             SettingsRow(
                               icon: Icons.notifications_none_rounded,

@@ -7,29 +7,43 @@ import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/review.dart';
-import '../reviews_repository.dart';
 
-class TechnicianRatingsScreen extends StatefulWidget {
-  const TechnicianRatingsScreen({super.key});
+/// A viewer's own rating and the reviews behind it -- shared by both
+/// directions of the two-way review system. Only the copy and the fetch
+/// differ: a technician's ratings come from customers, a customer's
+/// come from technicians.
+class RatingsScreen extends StatefulWidget {
+  const RatingsScreen({
+    super.key,
+    required this.title,
+    required this.raterLabel,
+    required this.emptyMessage,
+    required this.fetchReviews,
+  });
+
+  final String title;
+
+  /// Who the ratings are from, e.g. "customers" or "technicians".
+  final String raterLabel;
+
+  final String emptyMessage;
+  final Future<List<Review>> Function() fetchReviews;
 
   @override
-  State<TechnicianRatingsScreen> createState() =>
-      _TechnicianRatingsScreenState();
+  State<RatingsScreen> createState() => _RatingsScreenState();
 }
 
-class _TechnicianRatingsScreenState extends State<TechnicianRatingsScreen> {
+class _RatingsScreenState extends State<RatingsScreen> {
   late Future<List<Review>> _reviewsFuture;
 
   @override
   void initState() {
     super.initState();
-    _reviewsFuture = ReviewsRepository().fetchReviewsForTechnician();
+    _reviewsFuture = widget.fetchReviews();
   }
 
   Future<void> _refresh() async {
-    setState(
-      () => _reviewsFuture = ReviewsRepository().fetchReviewsForTechnician(),
-    );
+    setState(() => _reviewsFuture = widget.fetchReviews());
     await _reviewsFuture;
   }
 
@@ -51,7 +65,7 @@ class _TechnicianRatingsScreenState extends State<TechnicianRatingsScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const TopBar(eyebrow: 'REPUTATION', title: 'My ratings'),
+                    TopBar(eyebrow: 'REPUTATION', title: widget.title),
                     if (snapshot.hasError)
                       ErrorView(
                         message: 'Could not load ratings: ${snapshot.error}',
@@ -60,17 +74,15 @@ class _TechnicianRatingsScreenState extends State<TechnicianRatingsScreen> {
                     else if (snapshot.connectionState != ConnectionState.done)
                       const LoadingView()
                     else if (reviews.isEmpty)
-                      const EmptyView(
+                      EmptyView(
                         icon: Icons.star_border_rounded,
                         title: 'No ratings yet',
-                        message:
-                            'Customers can rate you once they have paid for a completed job.',
+                        message: widget.emptyMessage,
                       )
                     else ...[
-                      _AverageCard(reviews: reviews),
-                      const SectionHeading(title: 'What customers said'),
-                      for (final review in reviews)
-                        _ReviewCard(review: review),
+                      _AverageCard(reviews: reviews, raterLabel: widget.raterLabel),
+                      SectionHeading(title: 'What ${widget.raterLabel} said'),
+                      for (final review in reviews) _ReviewCard(review: review),
                     ],
                   ],
                 );
@@ -84,9 +96,10 @@ class _TechnicianRatingsScreenState extends State<TechnicianRatingsScreen> {
 }
 
 class _AverageCard extends StatelessWidget {
-  const _AverageCard({required this.reviews});
+  const _AverageCard({required this.reviews, required this.raterLabel});
 
   final List<Review> reviews;
+  final String raterLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +129,7 @@ class _AverageCard extends StatelessWidget {
                 StarRow(rating: average.round(), size: 19),
                 const SizedBox(height: 7),
                 Text(
-                  '${reviews.length} rating${reviews.length == 1 ? '' : 's'} from customers',
+                  '${reviews.length} rating${reviews.length == 1 ? '' : 's'} from $raterLabel',
                   style: AppText.bodyMuted.copyWith(
                     color: AppColors.accentForeground,
                   ),
