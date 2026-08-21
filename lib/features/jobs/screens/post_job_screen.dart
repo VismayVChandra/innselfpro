@@ -119,21 +119,32 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Future<void> _useCurrentLocation() async {
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
+    if (location == null) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not get your location -- check location permission is granted'),
+        ),
+      );
+      return;
+    }
+    final resolved = await _locationService.reverseGeocode(location.lat, location.lng);
     if (!mounted) return;
     setState(() {
       _isLocating = false;
-      if (location != null) {
-        _lat = location.lat;
-        _lng = location.lng;
-      }
+      _lat = location.lat;
+      _lng = location.lng;
+      _selectedAddressId = null;
+      if (resolved?.address != null) _locationController.text = resolved!.address!;
+      if (resolved?.pincode != null) _pincodeController.text = resolved!.pincode!;
     });
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          location == null
-              ? 'Could not get your location -- check location permission is granted'
-              : 'Location captured',
+          resolved?.address != null
+              ? 'Location captured -- check the address looks right'
+              : 'Location captured, but could not resolve an address -- type it in',
         ),
       ),
     );

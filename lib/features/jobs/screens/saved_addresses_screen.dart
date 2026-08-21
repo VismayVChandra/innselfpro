@@ -237,13 +237,24 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   Future<void> _useCurrentLocation() async {
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
+    if (location == null) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not get your location -- check location permission is granted'),
+        ),
+      );
+      return;
+    }
+    final resolved = await _locationService.reverseGeocode(location.lat, location.lng);
     if (!mounted) return;
     setState(() {
       _isLocating = false;
-      if (location != null) {
-        _lat = location.lat;
-        _lng = location.lng;
-      }
+      _lat = location.lat;
+      _lng = location.lng;
+      if (resolved?.address != null) _addressController.text = resolved!.address!;
+      if (resolved?.pincode != null) _pincodeController.text = resolved!.pincode!;
     });
   }
 
