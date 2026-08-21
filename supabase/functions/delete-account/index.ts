@@ -7,19 +7,42 @@
 // check outright. So:
 //   - No job/bid history at all -> hard delete (auth.users cascades to
 //     profiles, which cascades to technician_details/technician_kyc).
-//   - Has history, but nothing currently in flight -> anonymize
-//     (name/phone/address scrubbed, login permanently banned) and keep
-//     the transaction rows intact for whoever they worked with.
-//   - Has a job actively in flight (open/bid_accepted/in_progress, on
-//     either side) -> refuse outright, so nobody vanishes out from
-//     under a live job.
+//   - Has history, but nothing unresolved -> anonymize (name/phone/
+//     address scrubbed, login permanently banned) and keep the
+//     transaction rows intact for whoever they worked with.
+//   - Has a job that's unresolved on either side -> refuse outright.
+//     "Unresolved" means either actively in flight
+//     (open/bid_accepted/in_progress), or completed but never paid --
+//     otherwise a customer could delete their account to dodge paying
+//     for finished work, or a technician could vanish before a cash
+//     handoff is ever confirmed, and there'd be no way to collect
+//     after the fact.
 //
 // No secrets beyond the ones already required by the other functions
 // (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, both auto-provided).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const ACTIVE_STATUSES = ["open", "bid_accepted", "in_progress"];
+const IN_FLIGHT_STATUSES = ["open", "bid_accepted", "in_progress"];
+
+async function hasUnresolvedJob(
+  admin: ReturnType<typeof createClient>,
+  jobs: { id: string; status: string }[],
+): Promise<boolean> {
+  if (jobs.length === 0) return false;
+  if (jobs.some((j) => IN_FLIGHT_STATUSES.includes(j.status))) return true;
+
+  const completedIds = jobs.filter((j) => j.status === "completed").map((j) => j.id);
+  if (completedIds.length === 0) return false;
+
+  const { data: paidPayments } = await admin
+    .from("payments")
+    .select("job_id")
+    .in("job_id", completedIds)
+    .eq("status", "paid");
+  const paidJobIds = new Set((paidPayments ?? []).map((p) => p.job_id));
+  return completedIds.some((id) => !paidJobIds.has(id));
+}
 
 Deno.serve(async (req) => {
   try {
@@ -46,21 +69,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Active as a customer?
-    const { data: activeAsCustomer } = await admin
+    // Customer side: any job of theirs that's in flight, or completed
+    // but not yet paid.
+    const { data: customerJobs } = await admin
       .from("jobs")
-      .select("id")
-      .eq("customer_id", uid)
-      .in("status", ACTIVE_STATUSES)
-      .limit(1);
-    if (activeAsCustomer && activeAsCustomer.length > 0) {
+      .select("id, status")
+      .eq("customer_id", uid);
+    if (await hasUnresolvedJob(admin, customerJobs ?? [])) {
       return new Response(
-        JSON.stringify({ error: "You have a job in progress. Cancel or finish it before deleting your account." }),
+        JSON.stringify({
+          error:
+            "You have a job in progress or awaiting payment. Finish, pay, or cancel it before deleting your account.",
+        }),
         { status: 400 },
       );
     }
 
-    // Active as the technician on an accepted bid?
+    // Technician side: same check, scoped to jobs they actually won.
     const { data: acceptedBids } = await admin
       .from("bids")
       .select("job_id")
@@ -68,15 +93,16 @@ Deno.serve(async (req) => {
       .eq("status", "accepted");
     if (acceptedBids && acceptedBids.length > 0) {
       const jobIds = acceptedBids.map((b) => b.job_id);
-      const { data: activeAsTechnician } = await admin
+      const { data: technicianJobs } = await admin
         .from("jobs")
-        .select("id")
-        .in("id", jobIds)
-        .in("status", ACTIVE_STATUSES)
-        .limit(1);
-      if (activeAsTechnician && activeAsTechnician.length > 0) {
+        .select("id, status")
+        .in("id", jobIds);
+      if (await hasUnresolvedJob(admin, technicianJobs ?? [])) {
         return new Response(
-          JSON.stringify({ error: "You have a job in progress. Finish it before deleting your account." }),
+          JSON.stringify({
+            error:
+              "You have a job in progress or awaiting payment. Finish it before deleting your account.",
+          }),
           { status: 400 },
         );
       }
