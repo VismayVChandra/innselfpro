@@ -30,27 +30,48 @@ class BidsRepository {
     return Bid.fromMap(data);
   }
 
-  /// Bids on a job, each carrying the bidding technician's rating so the
-  /// customer can weigh price against reputation without a second screen.
-  Future<List<Bid>> fetchBidsForJob(String jobId) async {
-    final data = await supabase
+  /// Live bids on a job, always resolved with technician name and
+  /// rating, updating in place as bids arrive or get accepted/withdrawn.
+  /// Streaming carries no profiles(full_name) embed, so each emission
+  /// resolves names and ratings itself; asyncMap keeps that resolution
+  /// inside the stream rather than pushing it onto every call site.
+  Stream<List<Bid>> streamBidsForJob(String jobId) {
+    return supabase
         .from('bids')
-        .select(_bidSelect)
+        .stream(primaryKey: ['id'])
         .eq('job_id', jobId)
-        .order('amount', ascending: true);
-    final bids = (data as List)
-        .map((e) => Bid.fromMap(e as Map<String, dynamic>))
-        .toList();
-    final ratings = await fetchTechnicianRatings(
-      bids.map((b) => b.technicianId).toSet().toList(),
-    );
-    return bids.map((bid) {
-      final rating = ratings[bid.technicianId];
-      return bid.withRating(
-        rating: rating?.average,
-        reviewCount: rating?.count ?? 0,
-      );
-    }).toList();
+        .order('amount', ascending: true)
+        .asyncMap((rows) async {
+      final technicianIds = rows.map((r) => r['technician_id'] as String).toSet().toList();
+      final names = await _fetchProfileNames(technicianIds);
+      final ratings = await fetchTechnicianRatings(technicianIds);
+      return rows.map((row) {
+        final technicianId = row['technician_id'] as String;
+        final rating = ratings[technicianId];
+        return Bid(
+          id: row['id'] as String,
+          jobId: row['job_id'] as String,
+          technicianId: technicianId,
+          technicianName: names[technicianId] ?? '',
+          amount: (row['amount'] as num).toDouble(),
+          note: row['note'] as String?,
+          status: row['status'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          technicianRating: rating?.average,
+          technicianReviewCount: rating?.count ?? 0,
+        );
+      }).toList();
+    });
+  }
+
+  Future<Map<String, String>> _fetchProfileNames(List<String> ids) async {
+    if (ids.isEmpty) return {};
+    final rows =
+        await supabase.from('profiles').select('id, full_name').inFilter('id', ids);
+    return {
+      for (final row in rows as List)
+        (row as Map<String, dynamic>)['id'] as String: row['full_name'] as String,
+    };
   }
 
   /// Average rating and review count per technician, in one round trip.

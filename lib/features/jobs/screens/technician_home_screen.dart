@@ -17,7 +17,11 @@ import '../widgets/job_cards.dart';
 import 'job_detail_screen.dart';
 
 /// Feed tab: every open job a technician could bid on, filtered by
-/// category and area.
+/// category and area. Live -- one realtime subscription carries both
+/// the general feed and any job invited directly to this technician;
+/// jobs_select's RLS means any invited-job row reaching this stream is
+/// necessarily invited to this technician (nobody else's invite could
+/// ever arrive here), so no separate query is needed to tell them apart.
 class TechnicianHomeScreen extends StatefulWidget {
   const TechnicianHomeScreen({
     super.key,
@@ -32,11 +36,11 @@ class TechnicianHomeScreen extends StatefulWidget {
   State<TechnicianHomeScreen> createState() => _TechnicianHomeScreenState();
 }
 
-class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
-    with RefreshAware {
+class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   final _jobsRepository = JobsRepository();
   final _profileRepository = ProfileRepository();
   final _areaController = TextEditingController();
+  late final Stream<List<Job>> _openJobsStream = _jobsRepository.streamOpenJobs();
 
   List<Category> _categories = [];
   Set<int> _mySkillCategoryIds = {};
@@ -46,8 +50,6 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
   /// at 1.
   int? _selectedCategoryId;
 
-  Future<List<Job>>? _feedFuture;
-  Future<List<Job>>? _invitedJobsFuture;
   bool _initializing = true;
   Object? _initError;
 
@@ -63,14 +65,6 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
     super.dispose();
   }
 
-  @override
-  void onRefreshSignal() {
-    if (!_initializing) {
-      _applyFilters();
-      setState(() => _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe());
-    }
-  }
-
   Future<void> _init() async {
     try {
       final categories = await _jobsRepository.fetchCategories();
@@ -82,9 +76,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
         _mySkillCategoryIds = skillIds;
         _areaController.text = details?.serviceArea ?? '';
         _initializing = false;
-        _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe();
       });
-      _applyFilters();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -94,25 +86,35 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
     }
   }
 
-  void _applyFilters() {
-    setState(() {
-      List<int>? categoryIds;
-      if (_selectedCategoryId == null) {
-        categoryIds = _mySkillCategoryIds.isEmpty ? null : _mySkillCategoryIds.toList();
-      } else if (_selectedCategoryId != 0) {
-        categoryIds = [_selectedCategoryId!];
-      }
-      _feedFuture = _jobsRepository.fetchOpenJobsFeed(
-        categoryIds: categoryIds,
-        area: _areaController.text,
-      );
-    });
-  }
+  Map<int, String> get _categoryNamesById => {
+        for (final category in _categories) category.id: category.name,
+      };
 
-  Future<void> _refresh() async {
-    _applyFilters();
-    setState(() => _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe());
-    await Future.wait([_feedFuture!, _invitedJobsFuture!]);
+  /// Resolves each streamed row's category name (streaming carries no
+  /// join), then applies whatever category/area filter is currently
+  /// selected -- pure client-side computation over the live snapshot,
+  /// so a filter change never needs to hit the network.
+  List<Job> _applyFilters(List<Job> generalJobs) {
+    final namesById = _categoryNamesById;
+    var jobs = generalJobs
+        .map((j) => j.copyWithCategoryName(namesById[j.categoryId] ?? ''))
+        .toList();
+
+    List<int>? categoryIds;
+    if (_selectedCategoryId == null) {
+      categoryIds = _mySkillCategoryIds.isEmpty ? null : _mySkillCategoryIds.toList();
+    } else if (_selectedCategoryId != 0) {
+      categoryIds = [_selectedCategoryId!];
+    }
+    if (categoryIds != null) {
+      jobs = jobs.where((j) => categoryIds!.contains(j.categoryId)).toList();
+    }
+
+    final area = _areaController.text.trim().toLowerCase();
+    if (area.isNotEmpty) {
+      jobs = jobs.where((j) => j.location.toLowerCase().contains(area)).toList();
+    }
+    return jobs;
   }
 
   Future<void> _openJob(Job job) async {
@@ -124,6 +126,8 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
         ),
       ),
     );
+    // Other screens (e.g. "My Jobs") still fetch one-shot and need this
+    // nudge to refresh after something changes here.
     if (mounted) RefreshScope.of(context).bump();
   }
 
@@ -132,7 +136,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
-        onRefresh: _refresh,
+        onRefresh: _init,
         color: AppColors.primary,
         backgroundColor: AppColors.card,
         child: SingleChildScrollView(
@@ -159,110 +163,94 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
                     _init();
                   },
                 )
-              else ...[
-                FutureBuilder<List<Job>>(
-                  future: _invitedJobsFuture,
-                  builder: (context, snapshot) {
-                    final invited = snapshot.data ?? const <Job>[];
-                    if (invited.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SectionHeading(
-                          title: 'Direct requests',
-                          actionLabel: '${invited.length}',
-                          topPadding: 0,
-                        ),
-                        for (final job in invited)
-                          JobFeedCard(job: job, onTap: () => _openJob(job)),
-                        const SizedBox(height: 6),
-                      ],
-                    );
-                  },
-                ),
-                _AreaPanel(
-                  area: _areaController.text,
-                  feedFuture: _feedFuture,
-                ),
-                const SizedBox(height: 20),
-                _CategoryFilter(
-                  categories: _categories,
-                  selectedId: _selectedCategoryId,
-                  onSelected: (id) {
-                    _selectedCategoryId = id;
-                    _applyFilters();
-                  },
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
-                  child: TextField(
-                    controller: _areaController,
-                    textInputAction: TextInputAction.search,
-                    style: AppText.body.copyWith(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Filter by area, e.g. Koramangala',
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        size: 20,
-                        color: AppColors.mutedForeground,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_forward, size: 18),
-                        color: AppColors.primary,
-                        onPressed: _applyFilters,
-                        tooltip: 'Apply',
-                      ),
-                    ),
-                    onSubmitted: (_) => _applyFilters(),
-                  ),
-                ),
-                FutureBuilder<List<Job>>(
-                  future: _feedFuture,
+              else
+                StreamBuilder<List<Job>>(
+                  stream: _openJobsStream,
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return ErrorView(
                         message: 'Could not load the feed: ${snapshot.error}',
-                        onRetry: _applyFilters,
                       );
                     }
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return const LoadingView();
+                    if (!snapshot.hasData) {
+                      return const LoadingView(height: 300);
                     }
-                    final jobs = snapshot.data!;
-                    if (jobs.isEmpty) {
-                      return Column(
-                        children: [
-                          const EmptyView(
-                            icon: Icons.search_off_rounded,
-                            title: 'No open jobs match your filters',
-                            message:
-                                'Try clearing the area or picking a different category.',
-                          ),
-                          OutlineButton(
-                            label: 'See the jobs you have won',
-                            icon: Icons.work_outline_rounded,
-                            onPressed: () => widget.onOpenTab(1),
-                          ),
-                        ],
-                      );
-                    }
+                    final namesById = _categoryNamesById;
+                    final all = snapshot.data!;
+                    final invited = all
+                        .where((j) => j.invitedTechnicianId != null)
+                        .map((j) => j.copyWithCategoryName(namesById[j.categoryId] ?? ''))
+                        .toList();
+                    final general = all.where((j) => j.invitedTechnicianId == null).toList();
+                    final jobs = _applyFilters(general);
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        SectionHeading(
-                          title: 'Nearby opportunities',
-                          actionLabel:
-                              '${jobs.length} open',
-                          topPadding: 26,
+                        if (invited.isNotEmpty) ...[
+                          SectionHeading(
+                            title: 'Direct requests',
+                            actionLabel: '${invited.length}',
+                            topPadding: 0,
+                          ),
+                          for (final job in invited)
+                            JobFeedCard(job: job, onTap: () => _openJob(job)),
+                          const SizedBox(height: 6),
+                        ],
+                        _AreaPanel(area: _areaController.text, jobCount: jobs.length),
+                        const SizedBox(height: 20),
+                        _CategoryFilter(
+                          categories: _categories,
+                          selectedId: _selectedCategoryId,
+                          onSelected: (id) => setState(() => _selectedCategoryId = id),
                         ),
-                        for (final job in jobs)
-                          JobFeedCard(job: job, onTap: () => _openJob(job)),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                          child: TextField(
+                            controller: _areaController,
+                            textInputAction: TextInputAction.search,
+                            style: AppText.body.copyWith(fontSize: 13),
+                            decoration: const InputDecoration(
+                              hintText: 'Filter by area, e.g. Koramangala',
+                              prefixIcon: Icon(
+                                Icons.search,
+                                size: 20,
+                                color: AppColors.mutedForeground,
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        if (jobs.isEmpty)
+                          Column(
+                            children: [
+                              const EmptyView(
+                                icon: Icons.search_off_rounded,
+                                title: 'No open jobs match your filters',
+                                message:
+                                    'Try clearing the area or picking a different category.',
+                              ),
+                              OutlineButton(
+                                label: 'See the jobs you have won',
+                                icon: Icons.work_outline_rounded,
+                                onPressed: () => widget.onOpenTab(1),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          SectionHeading(
+                            title: 'Nearby opportunities',
+                            actionLabel: '${jobs.length} open',
+                            topPadding: 26,
+                          ),
+                          for (final job in jobs)
+                            JobFeedCard(job: job, onTap: () => _openJob(job)),
+                        ],
                       ],
                     );
                   },
                 ),
-              ],
             ],
           ),
         ),
@@ -273,10 +261,10 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
 
 /// Dark panel summarising where this technician is looking for work.
 class _AreaPanel extends StatelessWidget {
-  const _AreaPanel({required this.area, required this.feedFuture});
+  const _AreaPanel({required this.area, required this.jobCount});
 
   final String area;
-  final Future<List<Job>>? feedFuture;
+  final int jobCount;
 
   @override
   Widget build(BuildContext context) {
@@ -311,24 +299,16 @@ class _AreaPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          FutureBuilder<List<Job>>(
-            future: feedFuture,
-            builder: (context, snapshot) {
-              final count = snapshot.data?.length;
-              return Text(
-                count == null
-                    ? 'Looking for open requests...'
-                    : count == 0
-                        ? 'Nothing open right now. Pull down to refresh.'
-                        : '$count open request${count == 1 ? '' : 's'} waiting for a bid.',
-                style: const TextStyle(
-                  color: AppColors.onPanelMuted,
-                  fontSize: 11.5,
-                  height: 1.5,
-                  fontWeight: FontWeight.w400,
-                ),
-              );
-            },
+          Text(
+            jobCount == 0
+                ? 'Nothing open right now. New requests will appear live.'
+                : '$jobCount open request${jobCount == 1 ? '' : 's'} waiting for a bid.',
+            style: const TextStyle(
+              color: AppColors.onPanelMuted,
+              fontSize: 11.5,
+              height: 1.5,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ],
       ),

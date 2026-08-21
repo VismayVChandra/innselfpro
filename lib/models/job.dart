@@ -62,4 +62,23 @@ class Job {
         invitedTechnicianId: map['invited_technician_id'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
+
+  /// Realtime rows (via .stream()) can't carry the categories(name)
+  /// embed the way a one-shot select can -- this fills the name back in
+  /// from a category list the caller already has loaded.
+  Job copyWithCategoryName(String name) => Job(
+        id: id,
+        customerId: customerId,
+        categoryId: categoryId,
+        categoryName: name,
+        description: description,
+        photoUrls: photoUrls,
+        location: location,
+        status: status,
+        acceptedBidId: acceptedBidId,
+        scheduledFor: scheduledFor,
+        completionPhotoUrl: completionPhotoUrl,
+        invitedTechnicianId: invitedTechnicianId,
+        createdAt: createdAt,
+      );
 }

@@ -46,3 +46,10 @@ app.*.map.json
 
 # Local secrets
 /lib/core/env.dart
+
+# Release signing -- the keystore and its passwords. Losing this file
+# means never being able to publish an update to the same Play Store
+# listing again, so it must never be committed; back it up somewhere
+# safe outside this repo (a password manager, encrypted drive, etc).
+/android/key.properties
+/android/app/upload-keystore.jks

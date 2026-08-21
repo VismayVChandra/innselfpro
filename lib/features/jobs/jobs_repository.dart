@@ -60,50 +60,25 @@ class JobsRepository {
         .toList();
   }
 
-  /// [categoryIds] narrows to any of the given categories -- used both
-  /// for a single explicit category tap (one id) and for defaulting a
-  /// technician's feed to their own skill categories (several ids).
-  /// Null/empty means no category filter at all. Invite-only jobs
-  /// naturally never appear here for anyone but the invited technician
-  /// -- jobs_select hides them from everyone else at the RLS level, not
-  /// something this query needs to account for.
-  Future<List<Job>> fetchOpenJobsFeed({List<int>? categoryIds, String? area}) async {
-    var query = supabase
+  /// Every open job this caller's RLS lets them see, live. A technician
+  /// only ever sees: jobs with no invited_technician_id, plus any job
+  /// invited to them specifically (jobs_select, migration 008) -- so
+  /// this single stream covers both the general feed and "invited to
+  /// me" without a second subscription; the caller splits them apart
+  /// (job.invitedTechnicianId) and applies its own category/area
+  /// filtering client-side, since .stream() only supports chained
+  /// .eq() filters, not the .inFilter()/.ilike() the one-shot version
+  /// used. Rows carry no categories(name) embed either -- streaming
+  /// doesn't support embeds -- so category names come back empty;
+  /// resolve them from an already-loaded category list via
+  /// Job.copyWithCategoryName.
+  Stream<List<Job>> streamOpenJobs() {
+    return supabase
         .from('jobs')
-        .select(_jobSelect)
+        .stream(primaryKey: ['id'])
         .eq('status', 'open')
-        // Direct requests belong only in fetchInvitedJobsForMe's
-        // section -- excluding them here means the invited technician
-        // never sees the same job twice.
-        .filter('invited_technician_id', 'is', null);
-    if (categoryIds != null && categoryIds.isNotEmpty) {
-      query = query.inFilter('category_id', categoryIds);
-    }
-    if (area != null && area.trim().isNotEmpty) {
-      query = query.ilike('location', '%${area.trim()}%');
-    }
-    final data = await query.order('created_at', ascending: false);
-    return (data as List)
-        .map((e) => Job.fromMap(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Jobs a customer has invited this technician to directly. Kept as
-  /// its own query rather than relying on it surfacing through the
-  /// regular feed filters -- a rebooked job might not match the
-  /// technician's skill categories or area filter, and it shouldn't get
-  /// buried either way.
-  Future<List<Job>> fetchInvitedJobsForMe() async {
-    final uid = supabase.auth.currentUser!.id;
-    final data = await supabase
-        .from('jobs')
-        .select(_jobSelect)
-        .eq('status', 'open')
-        .eq('invited_technician_id', uid)
-        .order('created_at', ascending: false);
-    return (data as List)
-        .map((e) => Job.fromMap(e as Map<String, dynamic>))
-        .toList();
+        .order('created_at', ascending: false)
+        .map((rows) => rows.map((e) => Job.fromMap(e)).toList());
   }
 
   Future<Job> fetchJobById(String id) async {

@@ -58,7 +58,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _customerReviewCommentController = TextEditingController();
 
   late Job _job;
-  Future<List<Bid>>? _bidsFuture;
+  Stream<List<Bid>>? _bidsStream;
   Future<Bid?>? _myBidFuture;
   Future<Payment?>? _paymentFuture;
   Future<Review?>? _reviewFuture;
@@ -108,7 +108,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     super.initState();
     _job = widget.initialJob;
     if (_isOwningCustomer) {
-      _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
+      _bidsStream = _bidsRepository.streamBidsForJob(_job.id);
       if (_job.status == 'completed') {
         _paymentFuture = _paymentsRepository.fetchPaymentForJob(_job.id);
         _reviewFuture =
@@ -524,8 +524,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       await _bidsRepository.acceptBid(jobId: _job.id, bidId: bid.id);
       await _refreshJob();
       if (!mounted) return;
+      // No manual bids refetch needed -- _bidsStream already reflects
+      // the accept/reject updates live once they commit.
       setState(() {
-        _bidsFuture = _bidsRepository.fetchBidsForJob(_job.id);
         _disputeFuture = _disputesRepository.fetchDisputeForJob(_job.id);
         _contactFuture = _loadTechnicianContact();
       });
@@ -885,13 +886,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     }
 
-    return FutureBuilder<List<Bid>>(
-      future: _bidsFuture,
+    return StreamBuilder<List<Bid>>(
+      stream: _bidsStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return ErrorView(message: 'Could not load bids: ${snapshot.error}');
         }
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (!snapshot.hasData) {
           return const LoadingView(height: 160);
         }
         final bids = snapshot.data!;
