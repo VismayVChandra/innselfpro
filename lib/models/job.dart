@@ -27,6 +27,22 @@ class Job {
   /// bid is accepted, so it's already set by the time this is shown.
   final String? completionCode;
 
+  /// When the technician expects to arrive, set from the "I'm on my
+  /// way" time picker (migration 012). Null means no ETA was given.
+  final DateTime? etaAt;
+
+  /// Machine-readable location (migration 014) -- location stays the
+  /// human-readable address; these back real distance sorting/matching.
+  /// Null when the job predates this feature or geolocation wasn't
+  /// available/granted when it was posted.
+  final String? pincode;
+  final double? lat;
+  final double? lng;
+
+  /// Null means this job never expires (posted before migration 014,
+  /// or an already-assigned job -- only 'open' jobs are ever expired).
+  final DateTime? expiresAt;
+
   final DateTime createdAt;
 
   const Job({
@@ -43,8 +59,15 @@ class Job {
     this.completionPhotoUrl,
     this.invitedTechnicianId,
     this.completionCode,
+    this.etaAt,
+    this.pincode,
+    this.lat,
+    this.lng,
+    this.expiresAt,
     required this.createdAt,
   });
+
+  bool get hasLocation => lat != null && lng != null;
 
   factory Job.fromMap(Map<String, dynamic> map) => Job(
         id: map['id'] as String,
@@ -67,6 +90,15 @@ class Job {
         completionPhotoUrl: map['completion_photo_url'] as String?,
         invitedTechnicianId: map['invited_technician_id'] as String?,
         completionCode: map['completion_code'] as String?,
+        etaAt: map['eta_at'] == null
+            ? null
+            : DateTime.parse(map['eta_at'] as String),
+        pincode: map['pincode'] as String?,
+        lat: (map['lat'] as num?)?.toDouble(),
+        lng: (map['lng'] as num?)?.toDouble(),
+        expiresAt: map['expires_at'] == null
+            ? null
+            : DateTime.parse(map['expires_at'] as String),
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 
@@ -87,6 +119,11 @@ class Job {
         completionPhotoUrl: completionPhotoUrl,
         invitedTechnicianId: invitedTechnicianId,
         completionCode: completionCode,
+        etaAt: etaAt,
+        pincode: pincode,
+        lat: lat,
+        lng: lng,
+        expiresAt: expiresAt,
         createdAt: createdAt,
       );
 }

@@ -5,6 +5,7 @@ import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../models/profile.dart';
 import '../../auth/auth_repository.dart';
+import '../../jobs/screens/saved_addresses_screen.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../reviews/reviews_repository.dart';
@@ -170,10 +171,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   SettingsRow(
                     icon: Icons.location_on_outlined,
-                    label: 'Service address',
-                    value: profile.address?.isNotEmpty == true
-                        ? profile.address!
-                        : 'Not set',
+                    label: 'Saved addresses',
+                    value: 'Manage the addresses you post jobs from',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SavedAddressesScreen()),
+                    ),
                   ),
                   SettingsRow(
                     icon: Icons.call_outlined,

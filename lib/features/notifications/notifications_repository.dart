@@ -44,4 +44,34 @@ class NotificationsRepository {
   Future<void> markAsRead(String id) async {
     await supabase.from('notifications').update({'is_read': true}).eq('id', id);
   }
+
+  /// Whether there's an unread notification of [type] for [jobId] --
+  /// used for the chat unread dot on a job's contact card, a one-shot
+  /// check rather than pulling the whole notifications list.
+  Future<bool> hasUnread({required String jobId, required String type}) async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('job_id', jobId)
+        .eq('type', type)
+        .eq('is_read', false)
+        .limit(1);
+    return (data as List).isNotEmpty;
+  }
+
+  /// Marks every unread notification of [type] for [jobId] as read --
+  /// called on opening a job's chat, since viewing the thread is itself
+  /// "reading" whatever prompted the unread dot.
+  Future<void> markJobNotificationsRead({required String jobId, required String type}) async {
+    final uid = supabase.auth.currentUser!.id;
+    await supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('user_id', uid)
+        .eq('job_id', jobId)
+        .eq('type', type)
+        .eq('is_read', false);
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/surfaces.dart';
 
 /// Dark identity card at the top of both profile tabs.
@@ -91,6 +92,116 @@ class ProfileHeaderCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Replaces the old free-text "service area" box (wave 6.1): a base
+/// location captured via "use my current location" plus a radius slider
+/// -- what actually drives real distance matching now, instead of a
+/// spelling-sensitive area name. Shared between technician setup and
+/// edit profile, the only two places it appears.
+class ServiceRadiusPicker extends StatelessWidget {
+  const ServiceRadiusPicker({
+    super.key,
+    required this.hasLocation,
+    required this.isLocating,
+    required this.radiusKm,
+    required this.onSetLocation,
+    required this.onRadiusChanged,
+  });
+
+  final bool hasLocation;
+  final bool isLocating;
+  final int radiusKm;
+  final VoidCallback onSetLocation;
+  final ValueChanged<double> onRadiusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: AppCard(
+        margin: EdgeInsets.zero,
+        radius: 17,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SoftIcon(
+                  hasLocation ? Icons.my_location_rounded : Icons.location_searching_rounded,
+                  background: hasLocation ? AppColors.successSurface : AppColors.secondary,
+                  foreground: hasLocation ? AppColors.success : AppColors.accentForeground,
+                  size: 39,
+                  iconSize: 19,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasLocation ? 'Base location set' : 'Set your base location',
+                        style: AppText.cardTitle.copyWith(fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        hasLocation
+                            ? 'Jobs are matched by real distance from here.'
+                            : 'Needed to match you to nearby jobs by distance.',
+                        style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: isLocating ? null : onSetLocation,
+                  child: isLocating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(hasLocation ? 'Update' : 'Set'),
+                ),
+              ],
+            ),
+            if (hasLocation) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Divider(),
+              ),
+              Row(
+                children: [
+                  Text('Service radius', style: AppText.bodyMuted.copyWith(fontSize: 11)),
+                  const Spacer(),
+                  Text(
+                    '$radiusKm km',
+                    style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: AppColors.primary,
+                  thumbColor: AppColors.primary,
+                  inactiveTrackColor: AppColors.border,
+                ),
+                child: Slider(
+                  value: radiusKm.toDouble().clamp(5, 50),
+                  min: 5,
+                  max: 50,
+                  divisions: 9,
+                  label: '$radiusKm km',
+                  onChanged: onRadiusChanged,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

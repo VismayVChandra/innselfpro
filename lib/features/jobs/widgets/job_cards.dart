@@ -94,10 +94,14 @@ class JobListCard extends StatelessWidget {
 /// Row card for an open job in the technician's feed -- leads with the
 /// category, then the ask, then where it is.
 class JobFeedCard extends StatelessWidget {
-  const JobFeedCard({super.key, required this.job, required this.onTap});
+  const JobFeedCard({super.key, required this.job, required this.onTap, this.distanceLabel});
 
   final Job job;
   final VoidCallback onTap;
+
+  /// "3.2 km away" -- null when either side's coordinates aren't known,
+  /// in which case the card just omits the line rather than guessing.
+  final String? distanceLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +176,27 @@ class JobFeedCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (distanceLabel != null) ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.near_me_outlined,
+                          size: 12,
+                          color: AppColors.success,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          distanceLabel!,
+                          style: AppText.bodyMuted.copyWith(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.success,
                           ),
                         ),
                       ],

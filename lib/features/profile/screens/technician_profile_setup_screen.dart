@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -13,6 +14,7 @@ import '../../../models/category.dart';
 import '../../../models/profile.dart';
 import '../../jobs/jobs_repository.dart';
 import '../profile_repository.dart';
+import '../widgets/profile_widgets.dart';
 import '../widgets/skills_selector.dart';
 
 class TechnicianProfileSetupScreen extends StatefulWidget {
@@ -31,24 +33,45 @@ class _TechnicianProfileSetupScreenState
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _serviceAreaController = TextEditingController();
   final _idNumberController = TextEditingController();
   final _profileRepository = ProfileRepository();
+  final _locationService = LocationService();
   late final Future<List<Category>> _categoriesFuture =
       JobsRepository().fetchCategories();
 
   final Set<int> _selectedSkillCategoryIds = {};
   File? _kycDocument;
   bool _isLoading = false;
+  bool _isLocating = false;
+  double? _baseLat;
+  double? _baseLng;
+  int _radiusKm = 10;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _serviceAreaController.dispose();
     _idNumberController.dispose();
     super.dispose();
+  }
+
+  Future<void> _setLocation() async {
+    setState(() => _isLocating = true);
+    final location = await _locationService.getCurrentLocation();
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      if (location != null) {
+        _baseLat = location.lat;
+        _baseLng = location.lng;
+      }
+    });
+    if (location == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not get your location -- check location permission is granted')),
+      );
+    }
   }
 
   Future<void> _pickKycDocument() async {
@@ -86,7 +109,9 @@ class _TechnicianProfileSetupScreenState
       final documentPath =
           await _profileRepository.uploadKycDocument(_kycDocument!);
       await _profileRepository.upsertTechnicianDetails(
-        serviceArea: _serviceAreaController.text.trim(),
+        baseLat: _baseLat,
+        baseLng: _baseLng,
+        serviceRadiusKm: _radiusKm,
       );
       await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
       await _profileRepository.upsertTechnicianKyc(
@@ -191,11 +216,12 @@ class _TechnicianProfileSetupScreenState
                   },
                 ),
                 const FieldLabel('Service area', topPadding: 20),
-                _field(
-                  controller: _serviceAreaController,
-                  hint: 'e.g. Koramangala, Bangalore',
-                  icon: Icons.map_outlined,
-                  capitalization: TextCapitalization.words,
+                ServiceRadiusPicker(
+                  hasLocation: _baseLat != null && _baseLng != null,
+                  isLocating: _isLocating,
+                  radiusKm: _radiusKm,
+                  onSetLocation: _setLocation,
+                  onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                 ),
                 const SectionHeading(title: 'Identity check'),
                 const FieldLabel('Government ID number'),

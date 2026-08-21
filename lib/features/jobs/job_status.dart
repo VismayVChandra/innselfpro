@@ -39,9 +39,17 @@ class JobStatusInfo {
   static const _bidAccepted = JobStatusInfo(
     customerLabel: 'Technician assigned',
     technicianLabel: 'You won this job',
-    progress: 45,
+    progress: 35,
     color: AppColors.warn,
     step: 1,
+  );
+
+  static const _enRoute = JobStatusInfo(
+    customerLabel: 'On the way',
+    technicianLabel: 'You are on the way',
+    progress: 55,
+    color: AppColors.warn,
+    step: 2,
   );
 
   static const _inProgress = JobStatusInfo(
@@ -49,7 +57,7 @@ class JobStatusInfo {
     technicianLabel: 'Work in progress',
     progress: 75,
     color: AppColors.primary,
-    step: 2,
+    step: 3,
   );
 
   static const _completed = JobStatusInfo(
@@ -57,12 +65,20 @@ class JobStatusInfo {
     technicianLabel: 'Completed',
     progress: 100,
     color: AppColors.success,
-    step: 3,
+    step: 4,
   );
 
   static const _cancelled = JobStatusInfo(
     customerLabel: 'Cancelled',
     technicianLabel: 'Cancelled',
+    progress: 0,
+    color: AppColors.mutedForeground,
+    step: 0,
+  );
+
+  static const _expired = JobStatusInfo(
+    customerLabel: 'Expired -- no bids',
+    technicianLabel: 'Expired',
     progress: 0,
     color: AppColors.mutedForeground,
     step: 0,
@@ -79,9 +95,11 @@ class JobStatusInfo {
   static JobStatusInfo of(String status) => switch (status) {
         'open' => _open,
         'bid_accepted' => _bidAccepted,
+        'en_route' => _enRoute,
         'in_progress' => _inProgress,
         'completed' => _completed,
         'cancelled' => _cancelled,
+        'expired' => _expired,
         _ => _unknown,
       };
 
@@ -89,16 +107,20 @@ class JobStatusInfo {
   static const timeline = <({String label, IconData icon})>[
     (label: 'Request posted', icon: Icons.send_outlined),
     (label: 'Technician assigned', icon: Icons.person_outline),
+    (label: 'On the way', icon: Icons.directions_car_filled_outlined),
     (label: 'Work in progress', icon: Icons.handyman_outlined),
     (label: 'Job completed', icon: Icons.check_circle_outline),
   ];
 
   /// Is this job still moving?
   static bool isActive(String status) =>
-      status == 'bid_accepted' || status == 'in_progress';
+      status == 'bid_accepted' || status == 'en_route' || status == 'in_progress';
 
-  /// Does the four-step tracker make sense for this status? Not for
+  /// Does the five-step tracker make sense for this status? Not for
   /// 'open' (nothing assigned yet) or 'cancelled' (nothing to track).
   static bool showsTimeline(String status) =>
-      status == 'bid_accepted' || status == 'in_progress' || status == 'completed';
+      status == 'bid_accepted' ||
+      status == 'en_route' ||
+      status == 'in_progress' ||
+      status == 'completed';
 }

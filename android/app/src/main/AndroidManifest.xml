@@ -1,5 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Wave 6.1 "use my current location" on Post Job / technician
+         service radius setup: coarse is enough, fine gives a tighter
+         distance figure when the OS grants it. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="InnSelf"
         android:name="${applicationName}"

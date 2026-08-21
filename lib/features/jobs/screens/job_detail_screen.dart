@@ -22,6 +22,8 @@ import '../../../models/profile.dart';
 import '../../../models/review.dart';
 import '../../bids/bids_repository.dart';
 import '../../disputes/disputes_repository.dart';
+import '../../messages/screens/chat_screen.dart';
+import '../../notifications/notifications_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../profile/profile_repository.dart';
@@ -53,6 +55,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _reviewsRepository = ReviewsRepository();
   final _disputesRepository = DisputesRepository();
   final _profileRepository = ProfileRepository();
+  final _notificationsRepository = NotificationsRepository();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _reviewCommentController = TextEditingController();
@@ -86,9 +89,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   /// number.
   Future<({Profile profile, double? rating, int reviewCount})?>? _contactFuture;
 
+  /// Whether the other party has sent a chat message this viewer hasn't
+  /// opened the thread for yet -- drives the unread dot on the message
+  /// action in _ContactCard.
+  Future<bool>? _chatUnreadFuture;
+
+  /// Memoized per technician id so a rebuild of the "Book again" section
+  /// doesn't re-issue the availability RPC on every setState elsewhere
+  /// in this screen.
+  final Map<String, Future<bool>> _availabilityCache = {};
+
+  Future<bool> _availabilityFor(String technicianId) => _availabilityCache
+      .putIfAbsent(technicianId, () => _profileRepository.fetchTechnicianAvailability(technicianId));
+
   bool _isSubmittingBid = false;
   String? _acceptingBidId;
   bool _isUpdatingStatus = false;
+  bool _isStartingEnRoute = false;
+  DateTime? _selectedEta;
   bool _isStartingPayment = false;
   bool _isConfirmingPayment = false;
   bool _isMarkingCashPaid = false;
@@ -121,6 +139,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
       if (_job.acceptedBidId != null) {
         _contactFuture = _loadTechnicianContact();
+        _chatUnreadFuture =
+            _notificationsRepository.hasUnread(jobId: _job.id, type: 'new_message');
       }
     } else if (_isTechnician) {
       _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
@@ -382,6 +402,48 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);
     }
+  }
+
+  Future<void> _pickEta() async {
+    final now = TimeOfDay.now();
+    final picked = await showTimePicker(context: context, initialTime: now);
+    if (picked == null) return;
+    final today = DateTime.now();
+    var eta = DateTime(today.year, today.month, today.day, picked.hour, picked.minute);
+    if (eta.isBefore(today)) eta = eta.add(const Duration(days: 1));
+    setState(() => _selectedEta = eta);
+  }
+
+  Future<void> _startEnRoute() async {
+    setState(() => _isStartingEnRoute = true);
+    try {
+      await _jobsRepository.startEnRoute(_job.id, etaAt: _selectedEta);
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update status: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isStartingEnRoute = false);
+    }
+  }
+
+  Future<void> _openChat() async {
+    await _notificationsRepository.markJobNotificationsRead(
+      jobId: _job.id,
+      type: 'new_message',
+    );
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(jobId: _job.id, viewerId: widget.viewerProfile.id),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _chatUnreadFuture = Future.value(false);
+    });
   }
 
   Future<void> _completeJob() async {
@@ -726,6 +788,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         // safe to load the customer's contact details for this job --
         // memoized so it isn't re-fetched on every rebuild.
         _contactFuture ??= _loadCustomerContact();
+        _chatUnreadFuture ??=
+            _notificationsRepository.hasUnread(jobId: _job.id, type: 'new_message');
         if (_job.status == 'completed') {
           _customerReviewFuture ??=
               _reviewsRepository.fetchReviewForJob(_job.id, reviewerRole: 'technician');
@@ -734,7 +798,38 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         Widget? action;
         Widget? photoPicker;
         Widget? codeField;
+        Widget? etaPicker;
+        Widget? enRouteNotice;
         if (_job.status == 'bid_accepted') {
+          etaPicker = Padding(
+            padding: const EdgeInsets.only(top: 13),
+            child: OutlineButton(
+              label: _selectedEta == null
+                  ? 'Give an arrival time (optional)'
+                  : 'Arriving around ${formatDateTime(_selectedEta!).split('  ·  ').last}',
+              icon: Icons.schedule_outlined,
+              onPressed: _pickEta,
+            ),
+          );
+          action = PrimaryButton(
+            label: "I'm on my way",
+            icon: Icons.directions_car_filled_outlined,
+            isLoading: _isStartingEnRoute,
+            onPressed: _startEnRoute,
+          );
+        } else if (_job.status == 'en_route') {
+          enRouteNotice = Padding(
+            padding: const EdgeInsets.only(top: 13),
+            child: _NoticeCard(
+              icon: Icons.directions_car_filled_outlined,
+              background: AppColors.warnSurface,
+              foreground: AppColors.warn,
+              title: "You're on the way",
+              message: _job.etaAt == null
+                  ? 'Let the customer know when you arrive.'
+                  : 'You told the customer around ${formatDateTime(_job.etaAt!).split('  ·  ').last}.',
+            ),
+          );
           action = PrimaryButton(
             label: 'Start this job',
             isLoading: _isUpdatingStatus,
@@ -777,11 +872,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               builder: (context, contactSnapshot) {
                 final contact = contactSnapshot.data;
                 if (contact == null) return const SizedBox.shrink();
-                return _ContactCard(
-                  label: 'Your customer',
-                  profile: contact.profile,
-                  rating: contact.rating,
-                  reviewCount: contact.reviewCount,
+                return FutureBuilder<bool>(
+                  future: _chatUnreadFuture,
+                  builder: (context, unreadSnapshot) => _ContactCard(
+                    label: 'Your customer',
+                    profile: contact.profile,
+                    rating: contact.rating,
+                    reviewCount: contact.reviewCount,
+                    onMessage: _openChat,
+                    hasUnreadMessage: unreadSnapshot.data ?? false,
+                  ),
                 );
               },
             ),
@@ -815,8 +915,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ),
               ),
             ),
+            ?enRouteNotice,
             ?codeField,
             if (photoPicker != null) ...[const SizedBox(height: 16), photoPicker],
+            ?etaPicker,
             if (action != null) ...[const SizedBox(height: 20), action],
             if (_job.status == 'completed') ...[
               const SizedBox(height: 13),
@@ -848,6 +950,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           title: 'Your technician is assigned',
           message: 'They will start the work shortly.',
         );
+      } else if (_job.status == 'en_route') {
+        notice = _NoticeCard(
+          icon: Icons.directions_car_filled_outlined,
+          background: AppColors.warnSurface,
+          foreground: AppColors.warn,
+          title: 'Your technician is on the way',
+          message: _job.etaAt == null
+              ? "They're heading to you now."
+              : 'Arriving around ${formatDateTime(_job.etaAt!).split('  ·  ').last}.',
+        );
       } else if (_job.status == 'in_progress') {
         notice = _NoticeCard(
           icon: Icons.handyman_outlined,
@@ -874,16 +986,23 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               builder: (context, contactSnapshot) {
                 final contact = contactSnapshot.data;
                 if (contact == null) return const SizedBox.shrink();
-                return _ContactCard(
-                  label: 'Your technician',
-                  profile: contact.profile,
-                  rating: contact.rating,
-                  reviewCount: contact.reviewCount,
+                return FutureBuilder<bool>(
+                  future: _chatUnreadFuture,
+                  builder: (context, unreadSnapshot) => _ContactCard(
+                    label: 'Your technician',
+                    profile: contact.profile,
+                    rating: contact.rating,
+                    reviewCount: contact.reviewCount,
+                    onMessage: _openChat,
+                    hasUnreadMessage: unreadSnapshot.data ?? false,
+                  ),
                 );
               },
             ),
           if (_job.completionCode != null &&
-              (_job.status == 'bid_accepted' || _job.status == 'in_progress'))
+              (_job.status == 'bid_accepted' ||
+                  _job.status == 'en_route' ||
+                  _job.status == 'in_progress'))
             _CompletionCodeCard(code: _job.completionCode!),
           if (notice != null) Padding(padding: const EdgeInsets.only(top: 13), child: notice),
           if (_job.status == 'completed') ...[
@@ -894,22 +1013,34 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               builder: (context, contactSnapshot) {
                 final contact = contactSnapshot.data;
                 if (contact == null) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: OutlineButton(
-                    label: 'Book ${contact.profile.fullName} again',
-                    icon: Icons.replay_rounded,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PostJobScreen(
-                          initialCategory:
-                              Category(id: _job.categoryId, name: _job.categoryName),
-                          invitedTechnicianId: contact.profile.id,
-                          invitedTechnicianName: contact.profile.fullName,
-                        ),
+                return FutureBuilder<bool>(
+                  future: _availabilityFor(contact.profile.id),
+                  builder: (context, availabilitySnapshot) {
+                    // Defaults to available while the check is in
+                    // flight rather than flashing a disabled button.
+                    final isAvailable = availabilitySnapshot.data ?? true;
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: OutlineButton(
+                        label: isAvailable
+                            ? 'Book ${contact.profile.fullName} again'
+                            : '${contact.profile.fullName} is unavailable right now',
+                        icon: Icons.replay_rounded,
+                        onPressed: !isAvailable
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => PostJobScreen(
+                                      initialCategory: Category(
+                                          id: _job.categoryId, name: _job.categoryName),
+                                      invitedTechnicianId: contact.profile.id,
+                                      invitedTechnicianName: contact.profile.fullName,
+                                    ),
+                                  ),
+                                ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             ),
@@ -1809,12 +1940,19 @@ class _ContactCard extends StatelessWidget {
     required this.profile,
     this.rating,
     this.reviewCount = 0,
+    this.onMessage,
+    this.hasUnreadMessage = false,
   });
 
   final String label;
   final Profile profile;
   final double? rating;
   final int reviewCount;
+
+  /// Null hides the message action entirely -- used before a bid is
+  /// accepted, when there's no chat to open yet.
+  final VoidCallback? onMessage;
+  final bool hasUnreadMessage;
 
   Future<void> _launchOrWarn(BuildContext context, Uri uri, String failureMessage) async {
     bool launched;
@@ -1903,6 +2041,14 @@ class _ContactCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
+            if (onMessage != null) ...[
+              _ContactAction(
+                icon: Icons.forum_outlined,
+                onTap: onMessage!,
+                showDot: hasUnreadMessage,
+              ),
+              const SizedBox(width: 8),
+            ],
             _ContactAction(
               icon: Icons.copy_rounded,
               onTap: () {
@@ -1920,10 +2066,11 @@ class _ContactCard extends StatelessWidget {
 }
 
 class _ContactAction extends StatelessWidget {
-  const _ContactAction({required this.icon, required this.onTap});
+  const _ContactAction({required this.icon, required this.onTap, this.showDot = false});
 
   final IconData icon;
   final VoidCallback onTap;
+  final bool showDot;
 
   @override
   Widget build(BuildContext context) {
@@ -1936,7 +2083,26 @@ class _ContactAction extends StatelessWidget {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: Icon(icon, size: 18, color: AppColors.accentForeground),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(icon, size: 18, color: AppColors.accentForeground),
+              if (showDot)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary,
+                      border: Border.all(color: AppColors.secondary),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

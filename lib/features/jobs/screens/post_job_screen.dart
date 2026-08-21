@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/format.dart';
+import '../../../core/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -11,6 +12,8 @@ import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/category.dart';
+import '../../../models/customer_address.dart';
+import '../customer_addresses_repository.dart';
 import '../jobs_repository.dart';
 import '../widgets/category_grid.dart';
 import '../widgets/job_photos_picker.dart';
@@ -22,6 +25,8 @@ class PostJobScreen extends StatefulWidget {
     this.initialCategory,
     this.invitedTechnicianId,
     this.invitedTechnicianName,
+    this.initialDescription,
+    this.initialLocation,
   });
 
   /// Pre-selected when the customer arrived by tapping a tile in the
@@ -34,6 +39,12 @@ class PostJobScreen extends StatefulWidget {
   final String? invitedTechnicianId;
   final String? invitedTechnicianName;
 
+  /// Set when arriving via "Repost" on an expired request (wave 6.3) --
+  /// prefills the form so the customer isn't retyping everything, but
+  /// they still submit a genuinely new job, not an update to the old one.
+  final String? initialDescription;
+  final String? initialLocation;
+
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
 }
@@ -42,13 +53,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
+  final _pincodeController = TextEditingController();
   final _jobsRepository = JobsRepository();
+  final _addressesRepository = CustomerAddressesRepository();
+  final _locationService = LocationService();
 
   late final Future<List<Category>> _categoriesFuture;
+  late final Future<List<CustomerAddress>> _addressesFuture;
   int? _selectedCategoryId;
   Future<({double average, double min, double max, int count})?>? _priceGuidanceFuture;
   List<File> _photos = [];
   bool _isLoading = false;
+  bool _isLocating = false;
+  double? _lat;
+  double? _lng;
+  String? _selectedAddressId;
 
   bool _isScheduled = false;
   DateTime? _scheduledDate;
@@ -58,10 +77,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
   void initState() {
     super.initState();
     _categoriesFuture = _jobsRepository.fetchCategories();
+    _addressesFuture = _addressesRepository.fetchMyAddresses();
     _selectedCategoryId = widget.initialCategory?.id;
     if (_selectedCategoryId != null) {
       _priceGuidanceFuture = _jobsRepository.fetchPriceGuidance(_selectedCategoryId!);
     }
+    _descriptionController.text = widget.initialDescription ?? '';
+    _locationController.text = widget.initialLocation ?? '';
     _descriptionController.addListener(_onFieldChanged);
     _locationController.addListener(_onFieldChanged);
   }
@@ -70,7 +92,51 @@ class _PostJobScreenState extends State<PostJobScreen> {
   void dispose() {
     _descriptionController.dispose();
     _locationController.dispose();
+    _pincodeController.dispose();
     super.dispose();
+  }
+
+  void _pickAddress(CustomerAddress address) {
+    setState(() {
+      _selectedAddressId = address.id;
+      _locationController.text = address.address;
+      _pincodeController.text = address.pincode ?? '';
+      _lat = address.lat;
+      _lng = address.lng;
+    });
+  }
+
+  void _pickManualAddress() {
+    setState(() {
+      _selectedAddressId = null;
+      _locationController.clear();
+      _pincodeController.clear();
+      _lat = null;
+      _lng = null;
+    });
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _isLocating = true);
+    final location = await _locationService.getCurrentLocation();
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      if (location != null) {
+        _lat = location.lat;
+        _lng = location.lng;
+      }
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          location == null
+              ? 'Could not get your location -- check location permission is granted'
+              : 'Location captured',
+        ),
+      ),
+    );
   }
 
   /// Drives the three-segment progress bar at the top of the form.
@@ -154,6 +220,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         photos: _photos,
         scheduledFor: _scheduledFor,
         invitedTechnicianId: widget.invitedTechnicianId,
+        pincode: _pincodeController.text.trim(),
+        lat: _lat,
+        lng: _lng,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -284,6 +353,39 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ),
                 ),
                 const FieldLabel('Where should they come?', topPadding: 23),
+                FutureBuilder<List<CustomerAddress>>(
+                  future: _addressesFuture,
+                  builder: (context, snapshot) {
+                    final addresses = snapshot.data ?? const <CustomerAddress>[];
+                    if (addresses.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SizedBox(
+                        height: 42,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                          children: [
+                            for (final address in addresses) ...[
+                              ChoicePill(
+                                label: address.label,
+                                selected: _selectedAddressId == address.id,
+                                onTap: () => _pickAddress(address),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            ChoicePill(
+                              label: 'Add new',
+                              selected: _selectedAddressId == null &&
+                                  _locationController.text.isEmpty,
+                              onTap: _pickManualAddress,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -302,6 +404,28 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         ? 'Tell us where to send them'
                         : null,
                   ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: TextFormField(
+                    controller: _pincodeController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: 'Pincode',
+                      counterText: '',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().length != 6) ? '6-digit pincode' : null,
+                  ),
+                ),
+                OutlineButton(
+                  label: _lat == null ? 'Use current location' : 'Location set',
+                  icon: _lat == null ? Icons.my_location_rounded : Icons.check_circle_outline,
+                  isLoading: _isLocating,
+                  onPressed: _useCurrentLocation,
                 ),
                 const FieldLabel('When do you need this done?', topPadding: 23),
                 Padding(

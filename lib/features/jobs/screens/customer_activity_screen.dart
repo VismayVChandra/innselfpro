@@ -6,6 +6,7 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../../models/category.dart';
 import '../../../models/job.dart';
 import '../../../models/profile.dart';
 import '../../notifications/notification_bell.dart';
@@ -52,6 +53,23 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
     if (posted == true && mounted) RefreshScope.of(context).bump();
   }
 
+  /// Prefills a fresh request from an expired one -- the customer still
+  /// submits a genuinely new job (with the same nudge to widen the area
+  /// or adjust price that a first-time post gets via PriceGuidanceHint),
+  /// not an update to the expired one.
+  Future<void> _repost(Job job) async {
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PostJobScreen(
+          initialCategory: Category(id: job.categoryId, name: job.categoryName),
+          initialDescription: job.description,
+          initialLocation: job.location,
+        ),
+      ),
+    );
+    if (posted == true && mounted) RefreshScope.of(context).bump();
+  }
+
   Future<void> _openJob(Job job) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -79,6 +97,7 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
             future: _future,
             builder: (context, snapshot) {
               final jobs = snapshot.data ?? const <Job>[];
+              final expiredJobs = jobs.where((j) => j.status == 'expired').toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -96,6 +115,11 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
                   else if (snapshot.connectionState != ConnectionState.done)
                     const LoadingView()
                   else ...[
+                    if (expiredJobs.isNotEmpty) ...[
+                      const SectionHeading(title: 'Expired -- no bids', topPadding: 30),
+                      for (final job in expiredJobs)
+                        _ExpiredJobCard(job: job, onRepost: () => _repost(job)),
+                    ],
                     const SectionHeading(title: 'All requests', topPadding: 30),
                     if (jobs.isEmpty)
                       const EmptyView(
@@ -118,6 +142,54 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpiredJobCard extends StatelessWidget {
+  const _ExpiredJobCard({required this.job, required this.onRepost});
+
+  final Job job;
+  final VoidCallback onRepost;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter, vertical: 5),
+      child: AppCard(
+        margin: EdgeInsets.zero,
+        radius: 19,
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            const SoftIcon(
+              Icons.hourglass_disabled_outlined,
+              background: AppColors.muted,
+              foreground: AppColors.mutedForeground,
+              size: 40,
+              iconSize: 19,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(job.categoryName, style: AppText.cardTitle),
+                  const SizedBox(height: 3),
+                  Text(
+                    'No one bid before this expired.',
+                    style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: onRepost,
+              child: const Text('Repost'),
+            ),
+          ],
         ),
       ),
     );

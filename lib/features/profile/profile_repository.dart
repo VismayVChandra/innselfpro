@@ -81,13 +81,41 @@ class ProfileRepository {
   }
 
   Future<void> upsertTechnicianDetails({
-    required String serviceArea,
+    String serviceArea = '',
+    double? baseLat,
+    double? baseLng,
+    int? serviceRadiusKm,
   }) async {
     final uid = supabase.auth.currentUser!.id;
     await supabase.from('technician_details').upsert({
       'profile_id': uid,
       'service_area': serviceArea,
+      'base_lat': ?baseLat,
+      'base_lng': ?baseLng,
+      'service_radius_km': ?serviceRadiusKm,
     });
+  }
+
+  /// Flips whether this technician shows up in new-job alerts and stays
+  /// pickable for rebook/direct-request (migration 012) -- e.g. mid-job,
+  /// asleep, or away for the week.
+  Future<void> setAvailability(bool isAvailable) async {
+    final uid = supabase.auth.currentUser!.id;
+    await supabase
+        .from('technician_details')
+        .update({'is_available': isAvailable}).eq('profile_id', uid);
+  }
+
+  /// Whether a specific technician (not necessarily the caller) is
+  /// currently available -- via a SECURITY DEFINER function since
+  /// technician_details itself is owner-only. Used to grey out "Book
+  /// again" on a technician who's gone unavailable since a past job.
+  Future<bool> fetchTechnicianAvailability(String technicianId) async {
+    final result = await supabase.rpc(
+      'is_technician_available',
+      params: {'p_technician_id': technicianId},
+    );
+    return result as bool? ?? true;
   }
 
   /// Category ids this technician has marked as a skill.

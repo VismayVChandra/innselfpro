@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/location_service.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
@@ -7,6 +8,7 @@ import '../../../models/category.dart';
 import '../../../models/profile.dart';
 import '../../jobs/jobs_repository.dart';
 import '../profile_repository.dart';
+import '../widgets/profile_widgets.dart';
 import '../widgets/skills_selector.dart';
 
 /// Lets a signed-in user change their name, phone and address -- plus
@@ -34,14 +36,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _serviceAreaController = TextEditingController();
   final _profileRepository = ProfileRepository();
+  final _locationService = LocationService();
 
   List<Category> _categories = [];
   final Set<int> _selectedSkillCategoryIds = {};
   bool _isLoadingDetails = true;
   bool _isSaving = false;
+  bool _isLocating = false;
   Object? _loadError;
+  double? _baseLat;
+  double? _baseLng;
+  int _radiusKm = 10;
 
   bool get _isTechnician => widget.profile.isTechnician;
 
@@ -69,7 +75,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _selectedSkillCategoryIds
           ..clear()
           ..addAll(skillIds);
-        _serviceAreaController.text = details?.serviceArea ?? '';
+        _baseLat = details?.baseLat;
+        _baseLng = details?.baseLng;
+        _radiusKm = details?.serviceRadiusKm ?? 10;
         _isLoadingDetails = false;
       });
     } catch (e) {
@@ -86,8 +94,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _serviceAreaController.dispose();
     super.dispose();
+  }
+
+  Future<void> _setLocation() async {
+    setState(() => _isLocating = true);
+    final location = await _locationService.getCurrentLocation();
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      if (location != null) {
+        _baseLat = location.lat;
+        _baseLng = location.lng;
+      }
+    });
+    if (location == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not get your location -- check location permission is granted')),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -107,7 +132,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (_isTechnician) {
         await _profileRepository.upsertTechnicianDetails(
-          serviceArea: _serviceAreaController.text.trim(),
+          baseLat: _baseLat,
+          baseLng: _baseLng,
+          serviceRadiusKm: _radiusKm,
         );
         await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
       }
@@ -200,18 +227,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       }),
                     ),
                     const FieldLabel('Service area', topPadding: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: kGutter),
-                      child: TextFormField(
-                        controller: _serviceAreaController,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          hintText: 'e.g. Koramangala, Bangalore',
-                          prefixIcon: Icon(Icons.map_outlined, size: 20),
-                        ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
+                    ServiceRadiusPicker(
+                      hasLocation: _baseLat != null && _baseLng != null,
+                      isLocating: _isLocating,
+                      radiusKm: _radiusKm,
+                      onSetLocation: _setLocation,
+                      onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                     ),
                   ],
                 ],

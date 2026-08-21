@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/geo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -39,11 +40,20 @@ class TechnicianHomeScreen extends StatefulWidget {
 class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   final _jobsRepository = JobsRepository();
   final _profileRepository = ProfileRepository();
-  final _areaController = TextEditingController();
   late final Stream<List<Job>> _openJobsStream = _jobsRepository.streamOpenJobs();
 
   List<Category> _categories = [];
   Set<int> _mySkillCategoryIds = {};
+  bool _isAvailable = true;
+  bool _isTogglingAvailability = false;
+
+  /// The technician's own base location, once loaded -- null means
+  /// "hasn't set one yet" (set from Edit profile), in which case the
+  /// feed can't compute distance and just shows every open job
+  /// unsorted, same as before this feature existed.
+  double? _baseLat;
+  double? _baseLng;
+  double _radiusKm = 10;
 
   /// null = "My skills" (the default); 0 = "All"; anything else = that
   /// one category. 0 is a safe sentinel since Postgres serial ids start
@@ -59,12 +69,6 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
     _init();
   }
 
-  @override
-  void dispose() {
-    _areaController.dispose();
-    super.dispose();
-  }
-
   Future<void> _init() async {
     try {
       final categories = await _jobsRepository.fetchCategories();
@@ -74,7 +78,10 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
       setState(() {
         _categories = categories;
         _mySkillCategoryIds = skillIds;
-        _areaController.text = details?.serviceArea ?? '';
+        _isAvailable = details?.isAvailable ?? true;
+        _baseLat = details?.baseLat;
+        _baseLng = details?.baseLng;
+        _radiusKm = (details?.serviceRadiusKm ?? 10).toDouble();
         _initializing = false;
       });
     } catch (e) {
@@ -90,10 +97,22 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
         for (final category in _categories) category.id: category.name,
       };
 
+  bool get _hasBaseLocation => _baseLat != null && _baseLng != null;
+
+  /// Null when either side's coordinates are missing -- distance simply
+  /// can't be known, rather than guessed.
+  double? _distanceFor(Job job) {
+    if (!_hasBaseLocation || !job.hasLocation) return null;
+    return haversineKm(_baseLat!, _baseLng!, job.lat!, job.lng!);
+  }
+
   /// Resolves each streamed row's category name (streaming carries no
-  /// join), then applies whatever category/area filter is currently
-  /// selected -- pure client-side computation over the live snapshot,
-  /// so a filter change never needs to hit the network.
+  /// join), applies the category filter, and -- once the technician has
+  /// set a base location -- filters to the chosen radius and sorts
+  /// nearest first. Jobs without coordinates of their own (posted
+  /// before this feature) are kept but sort to the end, never silently
+  /// dropped. Pure client-side computation over the live snapshot, so a
+  /// filter change never needs to hit the network.
   List<Job> _applyFilters(List<Job> generalJobs) {
     final namesById = _categoryNamesById;
     var jobs = generalJobs
@@ -110,11 +129,39 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
       jobs = jobs.where((j) => categoryIds!.contains(j.categoryId)).toList();
     }
 
-    final area = _areaController.text.trim().toLowerCase();
-    if (area.isNotEmpty) {
-      jobs = jobs.where((j) => j.location.toLowerCase().contains(area)).toList();
+    if (_hasBaseLocation) {
+      jobs = jobs.where((j) {
+        final distance = _distanceFor(j);
+        return distance == null || distance <= _radiusKm;
+      }).toList();
+      jobs.sort((a, b) {
+        final da = _distanceFor(a);
+        final db = _distanceFor(b);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
     }
     return jobs;
+  }
+
+  Future<void> _toggleAvailability(bool value) async {
+    setState(() {
+      _isAvailable = value;
+      _isTogglingAvailability = true;
+    });
+    try {
+      await _profileRepository.setAvailability(value);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isAvailable = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update availability: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingAvailability = false);
+    }
   }
 
   Future<void> _openJob(Job job) async {
@@ -197,39 +244,40 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                             JobFeedCard(job: job, onTap: () => _openJob(job)),
                           const SizedBox(height: 6),
                         ],
-                        _AreaPanel(area: _areaController.text, jobCount: jobs.length),
+                        _AvailabilityRow(
+                          isAvailable: _isAvailable,
+                          isUpdating: _isTogglingAvailability,
+                          onChanged: _toggleAvailability,
+                        ),
+                        const SizedBox(height: 12),
+                        _AreaPanel(
+                          hasLocation: _hasBaseLocation,
+                          radiusKm: _radiusKm,
+                          jobCount: jobs.length,
+                          isAvailable: _isAvailable,
+                        ),
                         const SizedBox(height: 20),
                         _CategoryFilter(
                           categories: _categories,
                           selectedId: _selectedCategoryId,
                           onSelected: (id) => setState(() => _selectedCategoryId = id),
                         ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: kGutter),
-                          child: TextField(
-                            controller: _areaController,
-                            textInputAction: TextInputAction.search,
-                            style: AppText.body.copyWith(fontSize: 13),
-                            decoration: const InputDecoration(
-                              hintText: 'Filter by area, e.g. Koramangala',
-                              prefixIcon: Icon(
-                                Icons.search,
-                                size: 20,
-                                color: AppColors.mutedForeground,
-                              ),
-                            ),
-                            onChanged: (_) => setState(() {}),
+                        if (_hasBaseLocation) ...[
+                          const SizedBox(height: 8),
+                          _RadiusControl(
+                            radiusKm: _radiusKm,
+                            onChanged: (value) => setState(() => _radiusKm = value),
                           ),
-                        ),
+                        ],
                         if (jobs.isEmpty)
                           Column(
                             children: [
-                              const EmptyView(
+                              EmptyView(
                                 icon: Icons.search_off_rounded,
                                 title: 'No open jobs match your filters',
-                                message:
-                                    'Try clearing the area or picking a different category.',
+                                message: _hasBaseLocation
+                                    ? 'Try widening your radius or picking a different category.'
+                                    : 'Try picking a different category, or set your service radius from Edit profile.',
                               ),
                               OutlineButton(
                                 label: 'See the jobs you have won',
@@ -245,7 +293,13 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                             topPadding: 26,
                           ),
                           for (final job in jobs)
-                            JobFeedCard(job: job, onTap: () => _openJob(job)),
+                            JobFeedCard(
+                              job: job,
+                              onTap: () => _openJob(job),
+                              distanceLabel: _distanceFor(job) == null
+                                  ? null
+                                  : formatDistance(_distanceFor(job)!),
+                            ),
                         ],
                       ],
                     );
@@ -259,26 +313,110 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   }
 }
 
-/// Dark panel summarising where this technician is looking for work.
-class _AreaPanel extends StatelessWidget {
-  const _AreaPanel({required this.area, required this.jobCount});
+/// Compact card toggle above the area panel -- flipping this off stops
+/// wave 4.3's new-job pushes and drops this technician from rebook /
+/// direct-request selection (migration 012).
+class _AvailabilityRow extends StatelessWidget {
+  const _AvailabilityRow({
+    required this.isAvailable,
+    required this.isUpdating,
+    required this.onChanged,
+  });
 
-  final String area;
-  final int jobCount;
+  final bool isAvailable;
+  final bool isUpdating;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final hasArea = area.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: AppCard(
+        radius: 19,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            SoftIcon(
+              isAvailable ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              background: isAvailable ? AppColors.successSurface : AppColors.muted,
+              foreground: isAvailable ? AppColors.success : AppColors.mutedForeground,
+              size: 38,
+              iconSize: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAvailable ? 'Available for new jobs' : 'Not taking new jobs',
+                    style: AppText.cardTitle.copyWith(fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isAvailable
+                        ? "You'll get new-job alerts and can be rebooked."
+                        : 'Hidden from alerts and rebook until you switch back on.',
+                    style: AppText.bodyMuted.copyWith(fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            if (isUpdating)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Switch(
+                value: isAvailable,
+                onChanged: onChanged,
+                activeTrackColor: AppColors.primary,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dark panel summarising where this technician is looking for work --
+/// available and visible within a radius, available everywhere (no
+/// location set yet), or offline.
+class _AreaPanel extends StatelessWidget {
+  const _AreaPanel({
+    required this.hasLocation,
+    required this.radiusKm,
+    required this.jobCount,
+    required this.isAvailable,
+  });
+
+  final bool hasLocation;
+  final double radiusKm;
+  final int jobCount;
+  final bool isAvailable;
+
+  @override
+  Widget build(BuildContext context) {
     return DarkPanel(
       minHeight: 150,
       padding: const EdgeInsets.all(20),
-      solidColor: hasArea ? AppColors.panelOnline : AppColors.panelStart,
+      solidColor: !isAvailable
+          ? AppColors.foreground.withValues(alpha: 0.55)
+          : hasLocation
+              ? AppColors.panelOnline
+              : AppColors.panelStart,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            hasArea ? 'YOU ARE VISIBLE IN' : 'NO SERVICE AREA SET',
+            !isAvailable
+                ? 'OFFLINE'
+                : hasLocation
+                    ? 'YOU ARE VISIBLE WITHIN'
+                    : 'NO SERVICE RADIUS SET',
             style: const TextStyle(
               color: AppColors.onPanelKicker,
               fontSize: 9,
@@ -288,7 +426,11 @@ class _AreaPanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            hasArea ? area : 'Showing every open job',
+            !isAvailable
+                ? 'Not visible to customers'
+                : hasLocation
+                    ? '${radiusKm.round()} km of you'
+                    : 'Showing every open job',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -300,14 +442,63 @@ class _AreaPanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            jobCount == 0
-                ? 'Nothing open right now. New requests will appear live.'
-                : '$jobCount open request${jobCount == 1 ? '' : 's'} waiting for a bid.',
+            !isAvailable
+                ? 'Switch availability back on to start getting new-job alerts again.'
+                : jobCount == 0
+                    ? 'Nothing open right now. New requests will appear live.'
+                    : '$jobCount open request${jobCount == 1 ? '' : 's'} waiting for a bid.',
             style: const TextStyle(
               color: AppColors.onPanelMuted,
               fontSize: 11.5,
               height: 1.5,
               fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Radius slider shown once the technician has a base location set --
+/// filters and re-sorts the feed live as it's dragged.
+class _RadiusControl extends StatelessWidget {
+  const _RadiusControl({required this.radiusKm, required this.onChanged});
+
+  final double radiusKm;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGutter),
+      child: Row(
+        children: [
+          const Icon(Icons.radar_outlined, size: 16, color: AppColors.mutedForeground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: AppColors.primary,
+                thumbColor: AppColors.primary,
+                inactiveTrackColor: AppColors.border,
+              ),
+              child: Slider(
+                value: radiusKm.clamp(5, 50),
+                min: 5,
+                max: 50,
+                divisions: 9,
+                label: '${radiusKm.round()} km',
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 46,
+            child: Text(
+              '${radiusKm.round()} km',
+              textAlign: TextAlign.right,
+              style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

@@ -31,6 +31,9 @@ class JobsRepository {
     List<File> photos = const [],
     DateTime? scheduledFor,
     String? invitedTechnicianId,
+    String? pincode,
+    double? lat,
+    double? lng,
   }) async {
     final uid = supabase.auth.currentUser!.id;
     final photoUrls = <String>[];
@@ -45,6 +48,9 @@ class JobsRepository {
       'photo_urls': photoUrls.isEmpty ? null : photoUrls,
       'scheduled_for': scheduledFor?.toIso8601String(),
       'invited_technician_id': invitedTechnicianId,
+      'pincode': ?pincode,
+      'lat': ?lat,
+      'lng': ?lng,
     });
   }
 
@@ -107,6 +113,15 @@ class JobsRepository {
     return (data as List)
         .map((e) => Job.fromMap(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// The technician heading out -- optionally with an ETA the customer
+  /// sees on their status panel.
+  Future<void> startEnRoute(String jobId, {DateTime? etaAt}) async {
+    await supabase.from('jobs').update({
+      'status': 'en_route',
+      'eta_at': ?etaAt?.toIso8601String(),
+    }).eq('id', jobId);
   }
 
   Future<void> startJob(String jobId) async {

@@ -64,6 +64,7 @@ class TechnicianProfileScreen extends StatefulWidget {
 class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
   late Future<_TechnicianSummary> _future;
   bool _isDeleting = false;
+  bool _isTogglingAvailability = false;
 
   @override
   void initState() {
@@ -111,6 +112,27 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
       ),
     );
     if (mounted) _refresh();
+  }
+
+  bool? _availabilityOverride;
+
+  Future<void> _toggleAvailability(bool current) async {
+    final next = !current;
+    setState(() {
+      _availabilityOverride = next;
+      _isTogglingAvailability = true;
+    });
+    try {
+      await ProfileRepository().setAvailability(next);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _availabilityOverride = current);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update availability: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingAvailability = false);
+    }
   }
 
   Future<void> _deleteAccount() async {
@@ -185,6 +207,8 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                   }
                   final summary = snapshot.data!;
                   final rating = summary.averageRating;
+                  final isAvailable =
+                      _availabilityOverride ?? summary.details?.isAvailable ?? true;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -272,6 +296,26 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                                       true
                                   ? summary.details!.serviceArea!
                                   : 'Not set',
+                            ),
+                            SettingsRow(
+                              icon: isAvailable
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              label: 'Available for new jobs',
+                              value: isAvailable
+                                  ? "You'll get new-job alerts and can be rebooked"
+                                  : 'Hidden from alerts and rebook',
+                              trailing: _isTogglingAvailability
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Switch(
+                                      value: isAvailable,
+                                      onChanged: (_) => _toggleAvailability(isAvailable),
+                                      activeTrackColor: AppColors.primary,
+                                    ),
                             ),
                             SettingsRow(
                               icon: Icons.logout_rounded,
