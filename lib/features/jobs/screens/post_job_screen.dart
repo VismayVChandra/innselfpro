@@ -8,19 +8,31 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
-import '../../../core/widgets/photo_picker.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/category.dart';
 import '../jobs_repository.dart';
 import '../widgets/category_grid.dart';
+import '../widgets/job_photos_picker.dart';
+import '../widgets/price_guidance_hint.dart';
 
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key, this.initialCategory});
+  const PostJobScreen({
+    super.key,
+    this.initialCategory,
+    this.invitedTechnicianId,
+    this.invitedTechnicianName,
+  });
 
   /// Pre-selected when the customer arrived by tapping a tile in the
   /// home screen's "Book a service" grid.
   final Category? initialCategory;
+
+  /// Set when the customer arrived via "Book again" from a past job --
+  /// this request becomes invite-only to that one technician instead of
+  /// open to everyone.
+  final String? invitedTechnicianId;
+  final String? invitedTechnicianName;
 
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
@@ -34,7 +46,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   late final Future<List<Category>> _categoriesFuture;
   int? _selectedCategoryId;
-  File? _photo;
+  Future<({double average, double min, double max, int count})?>? _priceGuidanceFuture;
+  List<File> _photos = [];
   bool _isLoading = false;
 
   bool _isScheduled = false;
@@ -46,6 +59,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
     super.initState();
     _categoriesFuture = _jobsRepository.fetchCategories();
     _selectedCategoryId = widget.initialCategory?.id;
+    if (_selectedCategoryId != null) {
+      _priceGuidanceFuture = _jobsRepository.fetchPriceGuidance(_selectedCategoryId!);
+    }
     _descriptionController.addListener(_onFieldChanged);
     _locationController.addListener(_onFieldChanged);
   }
@@ -99,14 +115,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (picked != null) setState(() => _scheduledTime = picked);
   }
 
-  Future<void> _pickPhoto() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+  static const _maxPhotos = 5;
+
+  Future<void> _pickPhotos() async {
+    final remaining = _maxPhotos - _photos.length;
+    if (remaining <= 0) return;
+    final picked = await ImagePicker().pickMultiImage(
       imageQuality: 85,
+      limit: remaining,
     );
-    if (picked != null) {
-      setState(() => _photo = File(picked.path));
-    }
+    if (picked.isEmpty) return;
+    setState(() {
+      _photos = [..._photos, ...picked.take(remaining).map((x) => File(x.path))];
+    });
   }
 
   Future<void> _submit() async {
@@ -130,8 +151,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         categoryId: _selectedCategoryId!,
         description: _descriptionController.text.trim(),
         location: _locationController.text.trim(),
-        photo: _photo,
+        photos: _photos,
         scheduledFor: _scheduledFor,
+        invitedTechnicianId: widget.invitedTechnicianId,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -160,6 +182,37 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   eyebrow: 'NEW REQUEST',
                   title: "Tell us what's wrong",
                 ),
+                if (widget.invitedTechnicianId != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(kGutter, 0, kGutter, 16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.person_pin_circle_outlined,
+                            size: 18,
+                            color: AppColors.accentForeground,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              widget.invitedTechnicianName == null
+                                  ? 'Requesting this technician directly -- other technicians won\'t see this job.'
+                                  : 'Requesting ${widget.invitedTechnicianName} directly -- other technicians won\'t see this job.',
+                              style: AppText.meta.copyWith(
+                                color: AppColors.accentForeground,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 _ProgressBar(completed: _completedSteps),
                 const FieldLabel('What do you need help with?'),
                 FutureBuilder<List<Category>>(
@@ -177,12 +230,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     return CategoryGrid(
                       categories: snapshot.data!,
                       selectedId: _selectedCategoryId,
-                      onTap: (category) => setState(
-                        () => _selectedCategoryId = category.id,
-                      ),
+                      onTap: (category) => setState(() {
+                        _selectedCategoryId = category.id;
+                        _priceGuidanceFuture =
+                            _jobsRepository.fetchPriceGuidance(category.id);
+                      }),
                     );
                   },
                 ),
+                if (_priceGuidanceFuture != null) ...[
+                  const SizedBox(height: 12),
+                  PriceGuidanceHint(future: _priceGuidanceFuture!),
+                ],
                 const FieldLabel('Describe the problem', topPadding: 27),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
@@ -207,12 +266,22 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     style: AppText.bodyMuted,
                   ),
                 ),
-                const FieldLabel('Add a photo', topPadding: 23),
-                JobPhotoPicker(
-                  photo: _photo,
-                  onPick: _pickPhoto,
-                  onClear: () => setState(() => _photo = null),
-                  subtitle: 'Optional, but it helps pros quote accurately.',
+                FieldLabel(
+                  _photos.isEmpty ? 'Add photos' : 'Photos (${_photos.length}/$_maxPhotos)',
+                  topPadding: 23,
+                ),
+                JobPhotosPicker(
+                  photos: _photos,
+                  maxPhotos: _maxPhotos,
+                  onAdd: _pickPhotos,
+                  onRemove: (i) => setState(() => _photos = [..._photos]..removeAt(i)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(kTextGutter, 7, kTextGutter, 0),
+                  child: Text(
+                    'Optional, but it helps pros quote accurately.',
+                    style: AppText.bodyMuted,
+                  ),
                 ),
                 const FieldLabel('Where should they come?', topPadding: 23),
                 Padding(

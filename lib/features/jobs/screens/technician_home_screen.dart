@@ -47,6 +47,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
   int? _selectedCategoryId;
 
   Future<List<Job>>? _feedFuture;
+  Future<List<Job>>? _invitedJobsFuture;
   bool _initializing = true;
   Object? _initError;
 
@@ -64,7 +65,10 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
 
   @override
   void onRefreshSignal() {
-    if (!_initializing) _applyFilters();
+    if (!_initializing) {
+      _applyFilters();
+      setState(() => _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe());
+    }
   }
 
   Future<void> _init() async {
@@ -78,6 +82,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
         _mySkillCategoryIds = skillIds;
         _areaController.text = details?.serviceArea ?? '';
         _initializing = false;
+        _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe();
       });
       _applyFilters();
     } catch (e) {
@@ -106,7 +111,8 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
 
   Future<void> _refresh() async {
     _applyFilters();
-    await _feedFuture;
+    setState(() => _invitedJobsFuture = _jobsRepository.fetchInvitedJobsForMe());
+    await Future.wait([_feedFuture!, _invitedJobsFuture!]);
   }
 
   Future<void> _openJob(Job job) async {
@@ -154,6 +160,26 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen>
                   },
                 )
               else ...[
+                FutureBuilder<List<Job>>(
+                  future: _invitedJobsFuture,
+                  builder: (context, snapshot) {
+                    final invited = snapshot.data ?? const <Job>[];
+                    if (invited.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionHeading(
+                          title: 'Direct requests',
+                          actionLabel: '${invited.length}',
+                          topPadding: 0,
+                        ),
+                        for (final job in invited)
+                          JobFeedCard(job: job, onTap: () => _openJob(job)),
+                        const SizedBox(height: 6),
+                      ],
+                    );
+                  },
+                ),
                 _AreaPanel(
                   area: _areaController.text,
                   feedFuture: _feedFuture,

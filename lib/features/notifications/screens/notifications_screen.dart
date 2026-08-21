@@ -63,6 +63,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: AppColors.accentForeground,
           background: AppColors.secondary,
         );
+      case 'direct_request':
+        return (
+          icon: Icons.person_pin_circle_outlined,
+          color: AppColors.accentForeground,
+          background: AppColors.accent,
+        );
       case 'bid_accepted':
         return (
           icon: Icons.handshake_outlined,

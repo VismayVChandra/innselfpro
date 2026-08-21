@@ -13,6 +13,7 @@ import '../../../core/widgets/photo_picker.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/bid.dart';
+import '../../../models/category.dart';
 import '../../../models/dispute.dart';
 import '../../../models/job.dart';
 import '../../../models/payment.dart';
@@ -23,6 +24,8 @@ import '../../disputes/disputes_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../profile/profile_repository.dart';
+import '../widgets/price_guidance_hint.dart';
+import 'post_job_screen.dart';
 import '../../reviews/reviews_repository.dart';
 import '../job_status.dart';
 import '../jobs_repository.dart';
@@ -65,6 +68,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   /// technician before they've even bid -- separate from _contactFuture
   /// (name/phone), which stays hidden until a bid is accepted.
   Future<({double average, int count})?>? _customerRatingFuture;
+
+  /// Typical accepted-bid price for this job's category, shown to a
+  /// technician while they're quoting.
+  Future<({double average, double min, double max, int count})?>? _priceGuidanceFuture;
   Future<Dispute?>? _disputeFuture;
 
   /// The other party's contact card once a bid is accepted -- the
@@ -123,6 +130,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       // already authenticated-readable (reviews_select_all), so this
       // needs no new RLS.
       _customerRatingFuture = _reviewsRepository.fetchCustomerRating(_job.customerId);
+      if (_job.status == 'open') {
+        _priceGuidanceFuture = _jobsRepository.fetchPriceGuidance(_job.categoryId);
+      }
     }
   }
 
@@ -549,9 +559,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ],
               const SizedBox(height: 13),
               _JobFactsCard(job: _job),
-              if (_job.photoUrl != null) ...[
+              if (_job.photoUrls.isNotEmpty) ...[
                 const SizedBox(height: 13),
-                _JobPhoto(url: _job.photoUrl!),
+                _JobPhotos(urls: _job.photoUrls),
               ],
               if (_job.completionPhotoUrl != null) ...[
                 const SectionHeading(title: 'Completion photo', topPadding: 20),
@@ -635,36 +645,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             );
           }
-          return _SectionCard(
-            title: 'Submit a bid',
-            subtitle: 'Quote a fair price and tell the customer why you.',
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: AppText.body.copyWith(fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'Your price',
-                  prefixText: '₹ ',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _noteController,
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-                style: AppText.body.copyWith(fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'Note (optional)',
-                  hintText: 'What is included, when you can come...',
-                ),
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                label: 'Submit bid',
-                margin: EdgeInsets.zero,
-                isLoading: _isSubmittingBid,
-                onPressed: _submitBid,
+              if (_priceGuidanceFuture != null) ...[
+                const SizedBox(height: 13),
+                PriceGuidanceHint(future: _priceGuidanceFuture!),
+              ],
+              _SectionCard(
+                title: 'Submit a bid',
+                subtitle: 'Quote a fair price and tell the customer why you.',
+                children: [
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Your price',
+                      prefixText: '₹ ',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _noteController,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: AppText.body.copyWith(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Note (optional)',
+                      hintText: 'What is included, when you can come...',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(
+                    label: 'Submit bid',
+                    margin: EdgeInsets.zero,
+                    isLoading: _isSubmittingBid,
+                    onPressed: _submitBid,
+                  ),
+                ],
               ),
             ],
           );
@@ -836,6 +855,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           if (_job.status == 'completed') ...[
             _buildPaymentSection(),
             _buildReviewSection(),
+            FutureBuilder<({Profile profile, double? rating, int reviewCount})?>(
+              future: _contactFuture,
+              builder: (context, contactSnapshot) {
+                final contact = contactSnapshot.data;
+                if (contact == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: OutlineButton(
+                    label: 'Book ${contact.profile.fullName} again',
+                    icon: Icons.replay_rounded,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PostJobScreen(
+                          initialCategory:
+                              Category(id: _job.categoryId, name: _job.categoryName),
+                          invitedTechnicianId: contact.profile.id,
+                          invitedTechnicianName: contact.profile.fullName,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
           if (_job.status != 'cancelled') _buildDisputeSection(),
         ],
@@ -1429,6 +1472,13 @@ class _JobFactsCard extends StatelessWidget {
             icon: Icons.schedule_outlined,
             text: 'Posted ${formatDateTime(job.createdAt)}',
           ),
+          if (job.invitedTechnicianId != null) ...[
+            const SizedBox(height: 11),
+            const _FactRow(
+              icon: Icons.person_pin_circle_outlined,
+              text: 'Direct request -- only visible to one technician',
+            ),
+          ],
         ],
       ),
     );
@@ -1485,6 +1535,52 @@ class _JobPhoto extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The customer's original job photos -- a single big preview for the
+/// common one-photo case, a horizontally scrolling row when there are
+/// several.
+class _JobPhotos extends StatelessWidget {
+  const _JobPhotos({required this.urls});
+
+  final List<String> urls;
+
+  @override
+  Widget build(BuildContext context) {
+    if (urls.length == 1) return _JobPhoto(url: urls.first);
+    return SizedBox(
+      height: 140,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: kGutter),
+        itemCount: urls.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) => ClipRRect(
+          borderRadius: BorderRadius.circular(17),
+          child: Image.network(
+            urls[index],
+            width: 140,
+            height: 140,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            loadingBuilder: (context, child, progress) => progress == null
+                ? child
+                : Container(
+                    width: 140,
+                    height: 140,
+                    color: AppColors.muted,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+          ),
         ),
       ),
     );
