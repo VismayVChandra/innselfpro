@@ -92,6 +92,20 @@ String humanizeStatus(String status) {
   return words[0].toUpperCase() + words.substring(1);
 }
 
+/// Normalises free-text `profiles.phone` into a dialable E.164-ish
+/// number, or null when it isn't a plausible 10-digit Indian mobile
+/// number. Strips everything non-digit, drops a leading trunk `0`, and
+/// unwraps an already-present `91` country code before prepending `+91`.
+String? normalisePhone(String raw) {
+  var digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.startsWith('0')) digits = digits.substring(1);
+  if (digits.length == 12 && digits.startsWith('91')) {
+    digits = digits.substring(2);
+  }
+  if (digits.length != 10) return null;
+  return '+91$digits';
+}
+
 /// Initials for an avatar tile: "Vismay Chandra" -> "VC".
 String initialsOf(String name) {
   final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);

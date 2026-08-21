@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase_client.dart';
+import '../notifications/push_notifications_service.dart';
 
 class AuthRepository {
   Future<AuthResponse> signUp({
@@ -17,7 +18,12 @@ class AuthRepository {
     return supabase.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signOut() => supabase.auth.signOut();
+  /// Clears this device's push token first -- otherwise a shared phone
+  /// keeps notifying whoever just signed out.
+  Future<void> signOut() async {
+    await PushNotificationsService.instance.clearToken();
+    await supabase.auth.signOut();
+  }
 
   /// Calls the delete-account Edge Function, which either hard-deletes a
   /// clean account or anonymizes one with history (see the function's

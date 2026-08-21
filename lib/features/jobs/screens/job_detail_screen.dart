@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
@@ -56,6 +57,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _noteController = TextEditingController();
   final _reviewCommentController = TextEditingController();
   final _customerReviewCommentController = TextEditingController();
+  final _completionCodeController = TextEditingController();
 
   late Job _job;
   Stream<List<Bid>>? _bidsStream;
@@ -142,6 +144,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _noteController.dispose();
     _reviewCommentController.dispose();
     _customerReviewCommentController.dispose();
+    _completionCodeController.dispose();
     _paymentService.dispose();
     super.dispose();
   }
@@ -382,9 +385,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _completeJob() async {
+    final code = _completionCodeController.text.trim();
+    if (code.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the 4-digit code the customer gave you')),
+      );
+      return;
+    }
     setState(() => _isUpdatingStatus = true);
     try {
-      await _jobsRepository.completeJob(_job.id, completionPhoto: _completionPhoto);
+      await _jobsRepository.completeJob(
+        _job.id,
+        completionCode: code,
+        completionPhoto: _completionPhoto,
+      );
       await _refreshJob();
     } catch (e) {
       if (!mounted) return;
@@ -719,6 +733,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
         Widget? action;
         Widget? photoPicker;
+        Widget? codeField;
         if (_job.status == 'bid_accepted') {
           action = PrimaryButton(
             label: 'Start this job',
@@ -726,6 +741,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             onPressed: _startJob,
           );
         } else if (_job.status == 'in_progress') {
+          codeField = _SectionCard(
+            title: 'Completion code',
+            subtitle: 'Ask the customer for the 4-digit code shown on their screen.',
+            children: [
+              TextField(
+                controller: _completionCodeController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                textAlign: TextAlign.center,
+                style: AppText.body.copyWith(fontSize: 20, letterSpacing: 8),
+                decoration: const InputDecoration(counterText: ''),
+              ),
+            ],
+          );
           photoPicker = JobPhotoPicker(
             photo: _completionPhoto,
             onPick: _pickCompletionPhoto,
@@ -786,6 +815,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ),
               ),
             ),
+            ?codeField,
             if (photoPicker != null) ...[const SizedBox(height: 16), photoPicker],
             if (action != null) ...[const SizedBox(height: 20), action],
             if (_job.status == 'completed') ...[
@@ -852,6 +882,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 );
               },
             ),
+          if (_job.completionCode != null &&
+              (_job.status == 'bid_accepted' || _job.status == 'in_progress'))
+            _CompletionCodeCard(code: _job.completionCode!),
           if (notice != null) Padding(padding: const EdgeInsets.only(top: 13), child: notice),
           if (_job.status == 'completed') ...[
             _buildPaymentSection(),
@@ -1673,6 +1706,50 @@ class _NoticeCard extends StatelessWidget {
   }
 }
 
+/// The 4-digit code the customer reads out to their technician to close
+/// out the job -- deliberately loud (large, high-contrast digits) since
+/// missing it is the only way a job gets stuck at "in progress".
+class _CompletionCodeCard extends StatelessWidget {
+  const _CompletionCodeCard({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: DarkPanel(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'GIVE THIS CODE TO YOUR TECHNICIAN WHEN THE WORK IS DONE',
+              style: TextStyle(
+                color: AppColors.onPanelFaint,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              code,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 34,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// The other party's name, phone and a copy action, shown once a bid is
 /// accepted. Both roles reuse this -- only the label and the profile
 /// fetched differ.
@@ -1739,8 +1816,23 @@ class _ContactCard extends StatelessWidget {
   final double? rating;
   final int reviewCount;
 
+  Future<void> _launchOrWarn(BuildContext context, Uri uri, String failureMessage) async {
+    bool launched;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(failureMessage)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final normalisedPhone = normalisePhone(profile.phone);
+
     return Padding(
       padding: const EdgeInsets.only(top: 13),
       child: AppCard(
@@ -1791,6 +1883,26 @@ class _ContactCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (normalisedPhone != null) ...[
+              _ContactAction(
+                icon: Icons.call_rounded,
+                onTap: () => _launchOrWarn(
+                  context,
+                  Uri(scheme: 'tel', path: normalisedPhone),
+                  'Could not open the dialer',
+                ),
+              ),
+              const SizedBox(width: 8),
+              _ContactAction(
+                icon: Icons.chat_rounded,
+                onTap: () => _launchOrWarn(
+                  context,
+                  Uri.parse('https://wa.me/${normalisedPhone.substring(1)}'),
+                  'Could not open WhatsApp',
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             _ContactAction(
               icon: Icons.copy_rounded,
               onTap: () {

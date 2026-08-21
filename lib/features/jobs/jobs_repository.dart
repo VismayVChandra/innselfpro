@@ -113,19 +113,28 @@ class JobsRepository {
     await supabase.from('jobs').update({'status': 'in_progress'}).eq('id', jobId);
   }
 
-  /// [completionPhoto] is optional proof-of-work, uploaded under the
-  /// calling (technician's) own folder in the same bucket job photos
-  /// already use -- its existing storage policies only check the
-  /// upload path's leading uid, not the caller's role.
-  Future<void> completeJob(String jobId, {File? completionPhoto}) async {
+  /// [completionCode] is the 4-digit code the customer reads out --
+  /// verified server-side by the complete_job_with_code RPC (migration
+  /// 010), which is the only way a job can move to 'completed'; a guard
+  /// trigger rejects a plain status update that skips it. [completionPhoto]
+  /// is optional proof-of-work, uploaded under the calling (technician's)
+  /// own folder in the same bucket job photos already use -- its existing
+  /// storage policies only check the upload path's leading uid, not the
+  /// caller's role.
+  Future<void> completeJob(
+    String jobId, {
+    required String completionCode,
+    File? completionPhoto,
+  }) async {
     String? photoUrl;
     if (completionPhoto != null) {
       photoUrl = await _uploadJobPhoto(completionPhoto);
     }
-    await supabase.from('jobs').update({
-      'status': 'completed',
-      'completion_photo_url': ?photoUrl,
-    }).eq('id', jobId);
+    await supabase.rpc('complete_job_with_code', params: {
+      'p_job_id': jobId,
+      'p_code': completionCode,
+      'p_photo_url': photoUrl,
+    });
   }
 
   /// Cancels a job while it's still open, before any bid is accepted.

@@ -53,3 +53,11 @@ app.*.map.json
 # safe outside this repo (a password manager, encrypted drive, etc).
 /android/key.properties
 /android/app/upload-keystore.jks
+
+# Firebase config for push notifications (wave 4.2) -- identifies the
+# Firebase project; download from Firebase Console -> Project settings ->
+# your Android app -> google-services.json.
+/android/app/google-services.json
+
+# Supabase CLI's local cache/version marker, not project state.
+/supabase/.temp/

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/states.dart';
 import '../../../models/profile.dart';
+import '../../notifications/push_notifications_service.dart';
 import '../../shell/customer_shell.dart';
 import '../../shell/technician_shell.dart';
 import '../profile_repository.dart';
@@ -38,6 +39,9 @@ class _ProfileGateState extends State<ProfileGate> {
         _profile = profile;
         _loading = false;
       });
+      if (profile != null) {
+        PushNotificationsService.instance.registerToken();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -49,6 +53,7 @@ class _ProfileGateState extends State<ProfileGate> {
 
   void _onProfileCreated(Profile profile) {
     setState(() => _profile = profile);
+    PushNotificationsService.instance.registerToken();
   }
 
   @override

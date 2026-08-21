@@ -22,6 +22,11 @@ class Job {
   /// technician can see and bid on it, as normal.
   final String? invitedTechnicianId;
 
+  /// The 4-digit code the customer reads out to the technician to close
+  /// out the job (migration 010) -- generated server-side the moment a
+  /// bid is accepted, so it's already set by the time this is shown.
+  final String? completionCode;
+
   final DateTime createdAt;
 
   const Job({
@@ -37,6 +42,7 @@ class Job {
     this.scheduledFor,
     this.completionPhotoUrl,
     this.invitedTechnicianId,
+    this.completionCode,
     required this.createdAt,
   });
 
@@ -60,6 +66,7 @@ class Job {
             : DateTime.parse(map['scheduled_for'] as String),
         completionPhotoUrl: map['completion_photo_url'] as String?,
         invitedTechnicianId: map['invited_technician_id'] as String?,
+        completionCode: map['completion_code'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 
@@ -79,6 +86,7 @@ class Job {
         scheduledFor: scheduledFor,
         completionPhotoUrl: completionPhotoUrl,
         invitedTechnicianId: invitedTechnicianId,
+        completionCode: completionCode,
         createdAt: createdAt,
       );
 }

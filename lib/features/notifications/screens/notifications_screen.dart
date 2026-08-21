@@ -87,6 +87,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: AppColors.primary,
           background: Color(0x1FF0644F),
         );
+      case 'new_job':
+        return (
+          icon: Icons.campaign_outlined,
+          color: AppColors.success,
+          background: AppColors.successSurface,
+        );
       default:
         return (
           icon: Icons.notifications_none_rounded,
