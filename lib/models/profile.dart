@@ -5,12 +5,23 @@ class Profile {
   final String phone;
   final String? address;
 
+  /// Mirrored from technician_kyc.status by a trigger (migration 015).
+  /// The documents themselves stay owner-only -- this boolean is the
+  /// only part customers ever see.
+  final bool isVerified;
+
+  /// Cancellations made after a technician was already assigned. Shown
+  /// as a plain count, deliberately not used to block anything.
+  final int lateCancellations;
+
   const Profile({
     required this.id,
     required this.role,
     required this.fullName,
     required this.phone,
     this.address,
+    this.isVerified = false,
+    this.lateCancellations = 0,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -19,6 +30,8 @@ class Profile {
         fullName: map['full_name'] as String,
         phone: map['phone'] as String,
         address: map['address'] as String?,
+        isVerified: map['is_verified'] as bool? ?? false,
+        lateCancellations: map['late_cancellations'] as int? ?? 0,
       );
 
   bool get isCustomer => role == 'customer';

@@ -14,6 +14,10 @@ class Bid {
   final double? technicianRating;
   final int technicianReviewCount;
 
+  /// Whether this technician's KYC has been approved (migration 015),
+  /// resolved alongside the rating.
+  final bool technicianIsVerified;
+
   const Bid({
     required this.id,
     required this.jobId,
@@ -25,6 +29,7 @@ class Bid {
     required this.createdAt,
     this.technicianRating,
     this.technicianReviewCount = 0,
+    this.technicianIsVerified = false,
   });
 
   factory Bid.fromMap(Map<String, dynamic> map) => Bid(
@@ -40,7 +45,12 @@ class Bid {
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 
-  Bid withRating({required double? rating, required int reviewCount}) => Bid(
+  Bid withRating({
+    required double? rating,
+    required int reviewCount,
+    bool isVerified = false,
+  }) =>
+      Bid(
         id: id,
         jobId: jobId,
         technicianId: technicianId,
@@ -51,5 +61,6 @@ class Bid {
         createdAt: createdAt,
         technicianRating: rating,
         technicianReviewCount: reviewCount,
+        technicianIsVerified: isVerified,
       );
 }

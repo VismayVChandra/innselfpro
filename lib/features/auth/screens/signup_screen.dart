@@ -39,7 +39,11 @@ class _SignupScreenState extends State<SignupScreen> {
       );
       if (!mounted) return;
       if (response.session == null) {
-        // Email confirmation is enabled on the Supabase project.
+        // Email confirmation is enabled on the Supabase project. The
+        // code-entry screen (VerifyEmailScreen) needs custom SMTP to
+        // put a code in the email at all -- until that's set up, the
+        // emailed link is the only working path, so that's what's
+        // surfaced here.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Check your email to confirm your account, then log in.'),

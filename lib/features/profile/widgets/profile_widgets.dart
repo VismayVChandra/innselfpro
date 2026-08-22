@@ -97,6 +97,39 @@ class ProfileHeaderCard extends StatelessWidget {
   }
 }
 
+/// The customer-facing half of KYC (wave 7.1): a small tick shown
+/// wherever a technician is being judged -- bid cards, the contact card,
+/// their profile. Absence means "not checked yet", not "suspect", so
+/// there's deliberately no counterpart badge for unverified.
+class VerifiedBadge extends StatelessWidget {
+  const VerifiedBadge({super.key, this.showLabel = false, this.size = 13});
+
+  /// Adds the word "Verified" next to the tick -- worth the space on a
+  /// profile header, too noisy in a dense row.
+  final bool showLabel;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(Icons.verified_rounded, size: size, color: AppColors.success);
+    if (!showLabel) return icon;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        const SizedBox(width: 4),
+        Text(
+          'Verified',
+          style: AppText.meta.copyWith(
+            color: AppColors.success,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Replaces the old free-text "service area" box (wave 6.1): a base
 /// location captured via "use my current location" plus a radius slider
 /// -- what actually drives real distance matching now, instead of a
@@ -110,6 +143,7 @@ class ServiceRadiusPicker extends StatelessWidget {
     required this.radiusKm,
     required this.onSetLocation,
     required this.onRadiusChanged,
+    this.locationLabel,
   });
 
   final bool hasLocation;
@@ -117,6 +151,11 @@ class ServiceRadiusPicker extends StatelessWidget {
   final int radiusKm;
   final VoidCallback onSetLocation;
   final ValueChanged<double> onRadiusChanged;
+
+  /// Reverse-geocoded from the captured coordinates, e.g. "Koramangala,
+  /// Bangalore" -- purely a readable confirmation of where "here" is,
+  /// not something matching actually uses (that's still lat/lng).
+  final String? locationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +183,9 @@ class ServiceRadiusPicker extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        hasLocation ? 'Base location set' : 'Set your base location',
+                        hasLocation ? (locationLabel ?? 'Base location set') : 'Set your base location',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: AppText.cardTitle.copyWith(fontSize: 12.5),
                       ),
                       const SizedBox(height: 3),

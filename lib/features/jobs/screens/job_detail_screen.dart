@@ -27,6 +27,7 @@ import '../../notifications/notifications_repository.dart';
 import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../profile/profile_repository.dart';
+import '../../profile/widgets/profile_widgets.dart';
 import '../widgets/price_guidance_hint.dart';
 import 'post_job_screen.dart';
 import '../../reviews/reviews_repository.dart';
@@ -117,7 +118,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isFlagging = false;
   bool _isCancelling = false;
   bool _isWithdrawingBid = false;
+  bool _isRescheduling = false;
   File? _completionPhoto;
+
+  /// Why an assigned job was called off, shown to whichever party
+  /// didn't do the cancelling (wave 7.2). Only loaded once the job is
+  /// actually cancelled.
+  Future<({String reason, String cancelledBy})?>? _cancellationFuture;
 
   bool get _isOwningCustomer =>
       widget.viewerProfile.isCustomer && widget.viewerProfile.id == _job.customerId;
@@ -172,7 +179,166 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _refreshJob() async {
     final updated = await _jobsRepository.fetchJobById(_job.id);
     if (!mounted) return;
-    setState(() => _job = updated);
+    setState(() {
+      _job = updated;
+      if (updated.status == 'cancelled') {
+        _cancellationFuture = _jobsRepository.fetchCancellation(updated.id);
+      }
+    });
+  }
+
+  /// "Can't make it" -- available to either party while a job is
+  /// assigned but not yet started. Requires a reason, which the other
+  /// party sees, so an ordinary change of plan doesn't have to become a
+  /// dispute.
+  Future<void> _cancelAssignedJob() async {
+    const reasons = [
+      "Something came up, I can't make it",
+      'Schedule clash',
+      'Not needed any more',
+      'Could not agree on the details',
+    ];
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Can't make it?"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'The other person is told right away, along with your reason.',
+              style: AppText.bodyMuted,
+            ),
+            const SizedBox(height: 12),
+            for (final r in reasons)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(r),
+                  child: Text(r, textAlign: TextAlign.center),
+                ),
+              ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(hintText: 'Or type your own reason'),
+              onSubmitted: (v) => Navigator.of(dialogContext).pop(v.trim()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Never mind'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Cancel job'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    setState(() => _isCancelling = true);
+    try {
+      await _jobsRepository.cancelJobWithReason(jobId: _job.id, reason: reason);
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not cancel: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
+  Future<void> _rescheduleJob() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _job.scheduledFor ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_job.scheduledFor ?? now),
+    );
+    if (time == null) return;
+    setState(() => _isRescheduling = true);
+    try {
+      await _jobsRepository.rescheduleJob(
+        jobId: _job.id,
+        scheduledFor:
+            DateTime(date.year, date.month, date.day, time.hour, time.minute),
+      );
+      await _refreshJob();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not reschedule: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isRescheduling = false);
+    }
+  }
+
+  /// The two "ordinary life happened" actions, shown to both sides
+  /// while a job is assigned but hasn't started.
+  Widget _buildPlanChangeActions() {
+    if (_job.status != 'bid_accepted' && _job.status != 'en_route') {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 10),
+        OutlineButton(
+          label: 'Reschedule',
+          icon: Icons.event_repeat_outlined,
+          isLoading: _isRescheduling,
+          onPressed: _rescheduleJob,
+        ),
+        const SizedBox(height: 10),
+        OutlineButton(
+          label: "Can't make it",
+          icon: Icons.event_busy_outlined,
+          color: AppColors.destructive,
+          isLoading: _isCancelling,
+          onPressed: _cancelAssignedJob,
+        ),
+      ],
+    );
+  }
+
+  /// Replaces the generic "you cancelled this" copy once a reason was
+  /// recorded, so the party who didn't cancel learns why.
+  Widget _buildCancellationNotice() {
+    if (_job.status != 'cancelled') return const SizedBox.shrink();
+    _cancellationFuture ??= _jobsRepository.fetchCancellation(_job.id);
+    return FutureBuilder<({String reason, String cancelledBy})?>(
+      future: _cancellationFuture,
+      builder: (context, snapshot) {
+        final cancellation = snapshot.data;
+        if (cancellation == null) return const SizedBox.shrink();
+        final byMe = cancellation.cancelledBy == widget.viewerProfile.id;
+        return Padding(
+          padding: const EdgeInsets.only(top: 13),
+          child: _NoticeCard(
+            icon: Icons.event_busy_outlined,
+            background: AppColors.muted,
+            foreground: AppColors.mutedForeground,
+            title: byMe ? 'You cancelled this job' : 'This job was cancelled',
+            message: '"${cancellation.reason}"',
+          ),
+        );
+      },
+    );
   }
 
   Future<({Profile profile, double? rating, int reviewCount})?> _loadTechnicianContact() async {
@@ -932,6 +1098,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               _buildCustomerReviewSection(),
             ],
+            _buildPlanChangeActions(),
+            _buildCancellationNotice(),
             _buildDisputeSection(),
           ],
         );
@@ -968,7 +1136,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           title: 'Work in progress',
           message: 'Your technician is on the job right now.',
         );
-      } else if (_job.status == 'cancelled') {
+      } else if (_job.status == 'cancelled' && _job.acceptedBidId == null) {
+        // Cancelled before anyone was assigned. Once a technician is
+        // involved, _buildCancellationNotice takes over -- it carries
+        // the recorded reason and says which side called it off.
         notice = _NoticeCard(
           icon: Icons.block_outlined,
           background: AppColors.muted,
@@ -1005,6 +1176,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   _job.status == 'in_progress'))
             _CompletionCodeCard(code: _job.completionCode!),
           if (notice != null) Padding(padding: const EdgeInsets.only(top: 13), child: notice),
+          _buildCancellationNotice(),
+          _buildPlanChangeActions(),
           if (_job.status == 'completed') ...[
             _buildPaymentSection(),
             _buildReviewSection(),
@@ -2002,7 +2175,22 @@ class _ContactCard extends StatelessWidget {
                 children: [
                   Text(label.toUpperCase(), style: AppText.microLabel),
                   const SizedBox(height: 4),
-                  Text(profile.fullName, style: AppText.cardTitleLarge),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          profile.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.cardTitleLarge,
+                        ),
+                      ),
+                      if (profile.isVerified) ...[
+                        const SizedBox(width: 5),
+                        const VerifiedBadge(size: 15),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 3),
                   Row(
                     children: [
@@ -2170,13 +2358,23 @@ class _BidCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              bid.technicianName.isEmpty
-                                  ? 'Technician'
-                                  : bid.technicianName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.cardTitleLarge,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    bid.technicianName.isEmpty
+                                        ? 'Technician'
+                                        : bid.technicianName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.cardTitleLarge,
+                                  ),
+                                ),
+                                if (bid.technicianIsVerified) ...[
+                                  const SizedBox(width: 5),
+                                  const VerifiedBadge(size: 14),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Row(

@@ -6,10 +6,13 @@ import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../../models/kyc_submission.dart';
 import '../../../models/payment.dart';
 import '../../../models/profile.dart';
 import '../../../models/review.dart';
 import '../../../models/technician_details.dart';
+import '../../admin/admin_repository.dart';
+import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
 import '../../jobs/jobs_repository.dart';
 import '../../notifications/notifications_repository.dart';
@@ -30,6 +33,8 @@ class _TechnicianSummary {
     required this.details,
     required this.skillNames,
     required this.unreadCount,
+    required this.kyc,
+    required this.isAdmin,
   });
 
   final List<Payment> payments;
@@ -37,6 +42,8 @@ class _TechnicianSummary {
   final TechnicianDetails? details;
   final List<String> skillNames;
   final int unreadCount;
+  final KycSubmission? kyc;
+  final bool isAdmin;
 
   double get totalEarnings =>
       payments.fold<double>(0, (sum, p) => sum + p.amount);
@@ -83,12 +90,16 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
         .where((c) => skillIds.contains(c.id))
         .map((c) => c.name)
         .toList();
+    final kyc = await ProfileRepository().fetchMyKyc();
+    final isAdmin = await AdminRepository().amIAdmin();
     return _TechnicianSummary(
       payments: payments,
       reviews: reviews,
       details: details,
       skillNames: skillNames,
       unreadCount: unread,
+      kyc: kyc,
+      isAdmin: isAdmin,
     );
   }
 
@@ -212,6 +223,7 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      _KycStatusCard(kyc: summary.kyc),
                       const SizedBox(height: 14),
                       Padding(
                         padding:
@@ -317,6 +329,20 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                                       activeTrackColor: AppColors.primary,
                                     ),
                             ),
+                            if (summary.isAdmin)
+                              SettingsRow(
+                                icon: Icons.shield_outlined,
+                                label: 'Admin',
+                                value: 'Review KYC submissions and disputes',
+                                onTap: () => _push(const AdminScreen()),
+                              ),
+                            if (widget.profile.lateCancellations > 0)
+                              SettingsRow(
+                                icon: Icons.event_busy_outlined,
+                                label: 'Late cancellations',
+                                value:
+                                    '${widget.profile.lateCancellations} job${widget.profile.lateCancellations == 1 ? '' : 's'} cancelled after being assigned',
+                              ),
                             SettingsRow(
                               icon: Icons.logout_rounded,
                               label: 'Sign out',
@@ -361,6 +387,84 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The technician's own view of KYC (wave 7.1): pending, verified, or
+/// rejected with the reason, so someone who was turned down knows to
+/// resubmit rather than wondering why no badge ever appeared.
+class _KycStatusCard extends StatelessWidget {
+  const _KycStatusCard({required this.kyc});
+
+  final KycSubmission? kyc;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = kyc?.status ?? 'missing';
+    final ({IconData icon, Color color, Color background, String title, String message}) style =
+        switch (status) {
+      'verified' => (
+          icon: Icons.verified_rounded,
+          color: AppColors.success,
+          background: AppColors.successSurface,
+          title: 'You are verified',
+          message: 'Customers see a verified badge on your bids.',
+        ),
+      'rejected' => (
+          icon: Icons.error_outline_rounded,
+          color: AppColors.destructive,
+          background: const Color(0x1AD94B48),
+          title: 'ID check was rejected',
+          message: kyc?.rejectionReason?.isNotEmpty == true
+              ? '${kyc!.rejectionReason!}  Re-upload your ID from Edit profile.'
+              : 'Re-upload a clearer photo of your ID from Edit profile.',
+        ),
+      'pending' => (
+          icon: Icons.hourglass_top_rounded,
+          color: AppColors.warn,
+          background: AppColors.warnSurface,
+          title: 'ID check in progress',
+          message: 'We are reviewing your document. This usually takes a day.',
+        ),
+      _ => (
+          icon: Icons.badge_outlined,
+          color: AppColors.mutedForeground,
+          background: AppColors.muted,
+          title: 'No ID on file',
+          message: 'Upload your ID to earn a verified badge on your bids.',
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: AppCard(
+        radius: 19,
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SoftIcon(
+              style.icon,
+              background: style.background,
+              foreground: style.color,
+              size: 40,
+              iconSize: 19,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(style.title, style: AppText.cardTitle),
+                  const SizedBox(height: 4),
+                  Text(style.message, style: AppText.bodyMuted.copyWith(fontSize: 10.5)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

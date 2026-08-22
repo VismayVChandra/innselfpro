@@ -95,6 +95,11 @@ function titleFor(type: string): string {
     case "payment_received": return "Payment received";
     case "direct_request": return "You've been requested directly";
     case "new_job": return "New job near you";
+    case "new_message": return "New message";
+    case "technician_en_route": return "Your technician is on the way";
+    case "job_expired": return "Your request expired";
+    case "job_cancelled": return "A job was cancelled";
+    case "job_rescheduled": return "A job was rescheduled";
     default: return "InnSelf";
   }
 }

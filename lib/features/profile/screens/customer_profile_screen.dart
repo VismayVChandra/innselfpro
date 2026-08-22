@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../models/profile.dart';
+import '../../admin/admin_repository.dart';
+import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
 import '../../jobs/screens/saved_addresses_screen.dart';
 import '../../notifications/notifications_repository.dart';
@@ -32,6 +34,7 @@ class CustomerProfileScreen extends StatefulWidget {
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<int> _unreadFuture;
   late Future<({double average, int count})?> _ratingFuture;
+  late Future<bool> _isAdminFuture;
   bool _isDeleting = false;
 
   @override
@@ -40,6 +43,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     _unreadFuture = NotificationsRepository().fetchUnreadCount();
     _ratingFuture =
         ReviewsRepository().fetchCustomerRating(widget.profile.id);
+    _isAdminFuture = AdminRepository().amIAdmin();
   }
 
   Future<void> _openNotifications() async {
@@ -182,6 +186,27 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     label: 'Phone number',
                     value: profile.phone,
                   ),
+                  FutureBuilder<bool>(
+                    future: _isAdminFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.data != true) return const SizedBox.shrink();
+                      return SettingsRow(
+                        icon: Icons.shield_outlined,
+                        label: 'Admin',
+                        value: 'Review KYC submissions and disputes',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AdminScreen()),
+                        ),
+                      );
+                    },
+                  ),
+                  if (profile.lateCancellations > 0)
+                    SettingsRow(
+                      icon: Icons.event_busy_outlined,
+                      label: 'Late cancellations',
+                      value:
+                          '${profile.lateCancellations} job${profile.lateCancellations == 1 ? '' : 's'} cancelled after a technician was assigned',
+                    ),
                   SettingsRow(
                     icon: Icons.logout_rounded,
                     label: 'Sign out',

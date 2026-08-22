@@ -93,6 +93,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: AppColors.success,
           background: AppColors.successSurface,
         );
+      case 'new_message':
+        return (
+          icon: Icons.forum_outlined,
+          color: AppColors.accentForeground,
+          background: AppColors.secondary,
+        );
+      case 'technician_en_route':
+        return (
+          icon: Icons.directions_car_filled_outlined,
+          color: AppColors.warn,
+          background: AppColors.warnSurface,
+        );
+      case 'job_expired':
+        return (
+          icon: Icons.hourglass_disabled_outlined,
+          color: AppColors.mutedForeground,
+          background: AppColors.muted,
+        );
+      case 'job_cancelled':
+        return (
+          icon: Icons.event_busy_outlined,
+          color: AppColors.destructive,
+          background: Color(0x1AD94B48),
+        );
+      case 'job_rescheduled':
+        return (
+          icon: Icons.event_repeat_outlined,
+          color: AppColors.warn,
+          background: AppColors.warnSurface,
+        );
       default:
         return (
           icon: Icons.notifications_none_rounded,

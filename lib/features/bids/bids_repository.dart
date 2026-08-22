@@ -1,5 +1,6 @@
 import '../../core/supabase_client.dart';
 import '../../models/bid.dart';
+import '../profile/profile_repository.dart';
 
 const _bidSelect = '*, profiles(full_name)';
 
@@ -45,6 +46,7 @@ class BidsRepository {
       final technicianIds = rows.map((r) => r['technician_id'] as String).toSet().toList();
       final names = await _fetchProfileNames(technicianIds);
       final ratings = await fetchTechnicianRatings(technicianIds);
+      final verified = await ProfileRepository().fetchVerifiedProfileIds(technicianIds);
       return rows.map((row) {
         final technicianId = row['technician_id'] as String;
         final rating = ratings[technicianId];
@@ -59,6 +61,7 @@ class BidsRepository {
           createdAt: DateTime.parse(row['created_at'] as String),
           technicianRating: rating?.average,
           technicianReviewCount: rating?.count ?? 0,
+          technicianIsVerified: verified.contains(technicianId),
         );
       }).toList();
     });

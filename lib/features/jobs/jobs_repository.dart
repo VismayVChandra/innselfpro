@@ -158,6 +158,47 @@ class JobsRepository {
     await supabase.from('jobs').update({'status': 'cancelled'}).eq('id', jobId);
   }
 
+  /// Cancels a job either party can no longer make, recording why
+  /// (migration 015). Valid from open/bid_accepted/en_route only -- once
+  /// work has started the RPC refuses, and the dispute flow takes over.
+  /// Records the reason and flips the status in one statement, so the
+  /// two can't disagree.
+  Future<void> cancelJobWithReason({
+    required String jobId,
+    required String reason,
+  }) async {
+    await supabase.rpc('cancel_job_with_reason', params: {
+      'p_job_id': jobId,
+      'p_reason': reason,
+    });
+  }
+
+  /// Moves the agreed visit time. A plain update -- both participants
+  /// already hold update policies on jobs -- with a trigger notifying
+  /// whoever didn't make the change.
+  Future<void> rescheduleJob({
+    required String jobId,
+    required DateTime scheduledFor,
+  }) async {
+    await supabase
+        .from('jobs')
+        .update({'scheduled_for': scheduledFor.toIso8601String()}).eq('id', jobId);
+  }
+
+  /// Why a job was cancelled, for the party who didn't cancel it.
+  Future<({String reason, String cancelledBy})?> fetchCancellation(String jobId) async {
+    final data = await supabase
+        .from('job_cancellations')
+        .select('reason, cancelled_by')
+        .eq('job_id', jobId)
+        .maybeSingle();
+    if (data == null) return null;
+    return (
+      reason: data['reason'] as String,
+      cancelledBy: data['cancelled_by'] as String,
+    );
+  }
+
   /// Average/min/max/count of accepted bid amounts for a category,
   /// across every customer -- computed server-side by a
   /// SECURITY DEFINER function (migration 008) so it can aggregate

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase_client.dart';
+import '../../models/kyc_submission.dart';
 import '../../models/profile.dart';
 import '../../models/technician_details.dart';
 
@@ -153,7 +154,41 @@ class ProfileRepository {
       'profile_id': uid,
       'id_number': idNumber,
       'id_document_url': documentPath,
+      // Resubmitting after a rejection puts the record back in the
+      // queue -- otherwise a rejected technician could fix their
+      // document and still show as rejected forever.
+      'status': 'pending',
+      'rejection_reason': null,
     });
+  }
+
+  /// The caller's own KYC record (migration 015), so a technician can
+  /// see whether they're pending, verified, or rejected -- and why.
+  /// Null when they haven't submitted one at all.
+  Future<KycSubmission?> fetchMyKyc() async {
+    final uid = supabase.auth.currentUser!.id;
+    final data = await supabase
+        .from('technician_kyc')
+        .select()
+        .eq('profile_id', uid)
+        .maybeSingle();
+    if (data == null) return null;
+    return KycSubmission.fromMap(data);
+  }
+
+  /// Which of these profiles carry the verified badge, in one round
+  /// trip -- profiles_select_all already exposes this column to any
+  /// authenticated user, so no new policy is involved.
+  Future<Set<String>> fetchVerifiedProfileIds(List<String> ids) async {
+    if (ids.isEmpty) return {};
+    final rows = await supabase
+        .from('profiles')
+        .select('id, is_verified')
+        .inFilter('id', ids)
+        .eq('is_verified', true);
+    return {
+      for (final row in rows as List) (row as Map<String, dynamic>)['id'] as String,
+    };
   }
 
   /// Uploads to the private technician-kyc bucket under the user's own

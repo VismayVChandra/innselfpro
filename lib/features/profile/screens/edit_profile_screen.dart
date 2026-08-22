@@ -47,6 +47,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Object? _loadError;
   double? _baseLat;
   double? _baseLng;
+  String? _locationLabel;
   int _radiusKm = 10;
 
   bool get _isTechnician => widget.profile.isTechnician;
@@ -80,6 +81,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _radiusKm = details?.serviceRadiusKm ?? 10;
         _isLoadingDetails = false;
       });
+      // Best-effort label for an already-saved location -- purely a
+      // readable confirmation, so a failure here shouldn't block the
+      // rest of the form from loading.
+      if (_baseLat != null && _baseLng != null) {
+        final resolved = await _locationService.reverseGeocode(_baseLat!, _baseLng!);
+        if (mounted && resolved?.address != null) {
+          setState(() => _locationLabel = resolved!.address);
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -100,19 +110,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _setLocation() async {
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
-    if (!mounted) return;
-    setState(() {
-      _isLocating = false;
-      if (location != null) {
-        _baseLat = location.lat;
-        _baseLng = location.lng;
-      }
-    });
     if (location == null) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not get your location -- check location permission is granted')),
       );
+      return;
     }
+    final resolved = await _locationService.reverseGeocode(location.lat, location.lng);
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      _baseLat = location.lat;
+      _baseLng = location.lng;
+      _locationLabel = resolved?.address;
+    });
   }
 
   Future<void> _save() async {
@@ -231,6 +244,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       hasLocation: _baseLat != null && _baseLng != null,
                       isLocating: _isLocating,
                       radiusKm: _radiusKm,
+                      locationLabel: _locationLabel,
                       onSetLocation: _setLocation,
                       onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                     ),

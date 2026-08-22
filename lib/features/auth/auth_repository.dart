@@ -18,6 +18,22 @@ class AuthRepository {
     return supabase.auth.signInWithPassword(email: email, password: password);
   }
 
+  /// Confirms a signup using the 6-digit code from the confirmation
+  /// email (the {{ .Token }} template variable) instead of the emailed
+  /// link -- sidesteps needing a working web redirect target for a
+  /// native-only app. Signs the user in on success, same as clicking
+  /// the link would.
+  Future<AuthResponse> verifySignupOtp({
+    required String email,
+    required String token,
+  }) {
+    return supabase.auth.verifyOTP(type: OtpType.signup, token: token, email: email);
+  }
+
+  Future<void> resendSignupOtp({required String email}) {
+    return supabase.auth.resend(type: OtpType.signup, email: email);
+  }
+
   /// Clears this device's push token first -- otherwise a shared phone
   /// keeps notifying whoever just signed out.
   Future<void> signOut() async {

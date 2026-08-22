@@ -45,6 +45,7 @@ class _TechnicianProfileSetupScreenState
   bool _isLocating = false;
   double? _baseLat;
   double? _baseLng;
+  String? _locationLabel;
   int _radiusKm = 10;
 
   @override
@@ -59,19 +60,22 @@ class _TechnicianProfileSetupScreenState
   Future<void> _setLocation() async {
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
-    if (!mounted) return;
-    setState(() {
-      _isLocating = false;
-      if (location != null) {
-        _baseLat = location.lat;
-        _baseLng = location.lng;
-      }
-    });
     if (location == null) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not get your location -- check location permission is granted')),
       );
+      return;
     }
+    final resolved = await _locationService.reverseGeocode(location.lat, location.lng);
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      _baseLat = location.lat;
+      _baseLng = location.lng;
+      _locationLabel = resolved?.address;
+    });
   }
 
   Future<void> _pickKycDocument() async {
@@ -220,6 +224,7 @@ class _TechnicianProfileSetupScreenState
                   hasLocation: _baseLat != null && _baseLng != null,
                   isLocating: _isLocating,
                   radiusKm: _radiusKm,
+                  locationLabel: _locationLabel,
                   onSetLocation: _setLocation,
                   onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                 ),
