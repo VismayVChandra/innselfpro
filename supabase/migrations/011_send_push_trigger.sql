@@ -9,11 +9,32 @@
 -- notification insert that triggered it, same guarantee the wave 4 doc
 -- asked a webhook for.
 --
--- The anon key below is safe to hardcode: it's Supabase's public
--- "publishable" key, already shipped inside the compiled Android app
--- (see lib/core/env.dart) -- it only has to satisfy send-push's gateway
--- JWT check, and grants no elevated access on its own.
+-- ============================================================
+-- BEFORE RUNNING: substitute the two placeholders below.
+-- ============================================================
+--   <YOUR-PROJECT-REF>       Supabase dashboard -> Project Settings ->
+--                            General -> Reference ID
+--   <YOUR-PUBLISHABLE-KEY>   Project Settings -> API Keys -> the
+--                            publishable / anon key (the same value
+--                            lib/core/env.dart holds)
+--
+-- The publishable key is not a secret -- it ships inside the compiled
+-- Android app, and RLS is what actually protects the data -- but it is
+-- kept out of this repo so the project isn't trivially discoverable
+-- from source. Same reasoning as lib/core/env.example.dart.
+--
+-- The guard below makes an unsubstituted run fail immediately rather
+-- than installing a trigger that silently swallows every push.
 create extension if not exists pg_net;
+
+do $$
+begin
+  if '<YOUR-PROJECT-REF>' like '%YOUR-PROJECT-REF%'
+     or '<YOUR-PUBLISHABLE-KEY>' like '%YOUR-PUBLISHABLE-KEY%' then
+    raise exception
+      'Substitute <YOUR-PROJECT-REF> and <YOUR-PUBLISHABLE-KEY> in migration 011 before running it';
+  end if;
+end $$;
 
 create or replace function public.trigger_send_push()
 returns trigger
