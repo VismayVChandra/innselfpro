@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — InnSelf</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="mark"></div>
+    <div class="name">InnSelf</div>
+  </header>
+
+  <nav class="pages">
+    <a href="index.html">Overview</a>
+    <a href="privacy.html" class="current">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="delete-account.html">Delete Your Account</a>
+  </nav>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated 22 August 2026</p>
+
+  <p>InnSelf is a mobile app that connects customers with local technicians (electricians, plumbers, carpenters, and similar trades) for home services. This policy explains what information InnSelf collects, why, and how you can control it. It applies to anyone using the InnSelf Android app.</p>
+
+  <h2>Information we collect</h2>
+  <p>InnSelf only collects what it needs to run the marketplace — match you with a job or a technician, let the two of you coordinate and pay, and keep both sides accountable. Nothing here is sold, and nothing is used for advertising.</p>
+
+  <table>
+    <tr><th>Category</th><th>What's included</th><th>Why</th></tr>
+    <tr>
+      <td>Account</td>
+      <td>Email address, password (stored hashed by our backend provider, never in plain text)</td>
+      <td>Sign in and identify your account</td>
+    </tr>
+    <tr>
+      <td>Profile</td>
+      <td>Full name, phone number, address, whether you're a customer or technician</td>
+      <td>Shown to the other party once you're matched on a job, so you can actually reach each other</td>
+    </tr>
+    <tr>
+      <td>Technician verification</td>
+      <td>A government ID number and a photo of the document</td>
+      <td>Confirms a technician is a real, identifiable person before they can take jobs. If the number is a 12-digit Aadhaar number, only the last 4 digits are ever stored — the rest is masked before it reaches our database</td>
+    </tr>
+    <tr>
+      <td>Location</td>
+      <td>Precise GPS coordinates, only when you tap "use current location"; a pincode and free-text address you type</td>
+      <td>Matches jobs to nearby technicians by real distance, and fills in your address. Never collected in the background — only at the moment you ask for it</td>
+    </tr>
+    <tr>
+      <td>Job content</td>
+      <td>Job descriptions, photos you attach, scheduled times, bid amounts and notes</td>
+      <td>The actual substance of a job request or offer</td>
+    </tr>
+    <tr>
+      <td>Messages</td>
+      <td>Chat messages between a customer and their assigned technician</td>
+      <td>Lets the two of you coordinate details without swapping personal numbers upfront</td>
+    </tr>
+    <tr>
+      <td>Reviews &amp; reports</td>
+      <td>Ratings, written reviews, and any reports or blocks you file against another user</td>
+      <td>Builds trust between strangers transacting in person, and lets us act on abuse</td>
+    </tr>
+    <tr>
+      <td>Payments</td>
+      <td>Payment amount, status, and a transaction reference</td>
+      <td>Confirms a job was paid for. Your card, UPI ID, or bank details are handled directly by our payment processor, Razorpay — InnSelf's servers never see or store them</td>
+    </tr>
+    <tr>
+      <td>Push notifications</td>
+      <td>A device token issued by Firebase Cloud Messaging</td>
+      <td>Delivers notifications (new bids, messages, status updates) when the app is closed</td>
+    </tr>
+  </table>
+
+  <h2>Who we share it with</h2>
+  <p>We use a small number of service providers to run InnSelf. Each only receives what it needs to do its job:</p>
+  <ul>
+    <li><strong>Supabase</strong> — hosts our database, authentication, file storage, and backend logic. Almost everything above passes through Supabase's infrastructure.</li>
+    <li><strong>Razorpay</strong> — processes online payments. Handles your card/UPI details directly; we only receive confirmation that a payment succeeded.</li>
+    <li><strong>Google (Firebase Cloud Messaging, and Android's location and geocoding services)</strong> — delivers push notifications, and turns coordinates into a readable address when you use "use current location".</li>
+  </ul>
+  <p>We don't sell personal data, and we don't share it with anyone else for marketing or advertising purposes.</p>
+
+  <h2>Other InnSelf users see some of this too</h2>
+  <p>This is a marketplace where strangers meet in person, so some information is deliberately visible to the other side of a job:</p>
+  <ul>
+    <li>Your name, phone number, and rating become visible to the other party <strong>once a bid is accepted</strong> — not before.</li>
+    <li>A technician's verification badge (but never the underlying ID document or number) is visible to any customer comparing bids.</li>
+    <li>Your job's address is shared with technicians who bid on it, so they can judge the distance and quote accurately.</li>
+  </ul>
+
+  <h2>How long we keep it, and deleting your account</h2>
+  <p>We keep your data for as long as your account is active. You can delete your account at any time from <strong>Profile → Delete account</strong> in the app, or via the web process described on our <a href="delete-account.html">account deletion page</a>.</p>
+  <p>If you've never completed a job or payment on InnSelf, deleting your account removes your personal data entirely. If you have transaction history, we anonymize your personal details (name, phone, email) while keeping the underlying job/payment/review record intact — this protects the other party's legitimate record of a transaction that actually happened, the same way a receipt survives even after the store that issued it changes hands.</p>
+
+  <h2>Your rights</h2>
+  <p>You can access, correct, or delete your personal information at any time from within the app (Profile → Edit profile, or Profile → Delete account). For anything the app doesn't expose directly, contact us using the details below.</p>
+
+  <h2>Security</h2>
+  <p>Access to your data is restricted by row-level security rules enforced at the database level — in practice, a user can only ever read the rows they're actually a participant in (their own jobs, bids they placed, jobs they're assigned to). Technician ID documents are stored in a private file store that only the technician themselves and platform administrators can access.</p>
+
+  <h2>Children's privacy</h2>
+  <p>InnSelf is not directed at children. You must be at least 18 years old to create an account, given the app involves real payments and in-person services.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes in a way that materially affects how your data is used, we'll update the date at the top of this page and, where required, notify you in-app.</p>
+
+  <div class="contact-box">
+    <strong>Questions about this policy or your data?</strong><br>
+    Email <a href="mailto:innself.vvc@gmail.com">innself.vvc@gmail.com</a>.
+  </div>
+
+  <footer class="page">InnSelf is developed and operated by an individual developer, not a registered company.</footer>
+</div>
+</body>
+</html>
