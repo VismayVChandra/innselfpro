@@ -26,6 +26,18 @@ class AuthGate extends StatelessWidget {
       stream: AuthRepository().authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.data?.event == AuthChangeEvent.passwordRecovery) {
+          // AuthGate swapping its own content only changes what the
+          // FIRST route shows -- it doesn't touch the Navigator stack.
+          // If the user is sitting on a pushed screen at this moment
+          // (in practice, always ForgotPasswordScreen's "check your
+          // email" state, since that's the only path that leads here),
+          // it stays on top and fully hides ResetPasswordScreen
+          // underneath. Popping back to the first route is what
+          // actually surfaces it. Deferred a frame since Navigator
+          // methods can't be called during build().
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          });
           return const ResetPasswordScreen();
         }
         final session = supabase.auth.currentSession;
