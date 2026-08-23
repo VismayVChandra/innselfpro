@@ -27,6 +27,10 @@
   <p id="status">Opening the app&hellip;</p>
   <a id="open-link" class="btn" href="#">Open InnSelf</a>
   <p class="hint">If nothing happens, make sure InnSelf is installed, then tap the button above. This link only works on the phone it was requested from.</p>
+  <!-- TEMPORARY diagnostic for the password-reset link-fragment bug --
+       shows exactly what this page received, since that's not visible
+       any other way from a phone. Remove once confirmed working. -->
+  <p id="debug" style="margin-top:28px;font-size:11px;color:var(--ink-soft);word-break:break-all;max-width:90vw;"></p>
 </div>
 <script>
   // Password recovery hands the session back in the URL fragment
@@ -41,6 +45,8 @@
   var hash = window.location.hash || '';
   var target = 'innself://reset-callback' + hash;
   document.getElementById('open-link').href = target;
+  document.getElementById('debug').textContent =
+    'full URL received: ' + window.location.href;
 
   if (hash.indexOf('access_token') === -1) {
     document.getElementById('status').textContent =
