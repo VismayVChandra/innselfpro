@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/location_service.dart';
+import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
@@ -108,6 +109,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _setLocation() async {
+    if (!await confirmLocationUse(context, _locationService) || !mounted) return;
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
     if (location == null) {

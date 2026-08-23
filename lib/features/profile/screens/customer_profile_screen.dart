@@ -8,6 +8,7 @@ import '../../admin/admin_repository.dart';
 import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
 import '../../jobs/screens/saved_addresses_screen.dart';
+import '../../safety/screens/blocked_users_screen.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../reviews/reviews_repository.dart';
@@ -185,6 +186,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     icon: Icons.call_outlined,
                     label: 'Phone number',
                     value: profile.phone,
+                  ),
+                  SettingsRow(
+                    icon: Icons.block_outlined,
+                    label: 'Blocked users',
+                    value: 'People you have blocked from messaging you',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
+                    ),
                   ),
                   FutureBuilder<bool>(
                     future: _isAdminFuture,

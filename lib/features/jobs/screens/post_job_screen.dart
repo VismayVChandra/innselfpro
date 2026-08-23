@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/format.dart';
 import '../../../core/location_service.dart';
+import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -117,6 +118,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   Future<void> _useCurrentLocation() async {
+    if (!await confirmLocationUse(context, _locationService) || !mounted) return;
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
     if (location == null) {

@@ -31,6 +31,15 @@ class LocationService {
     }
   }
 
+  /// Doesn't trigger the OS prompt -- just reads the current state, so a
+  /// caller can decide whether to show its own explanation first.
+  Future<LocationPermission> currentPermissionStatus() => Geolocator.checkPermission();
+
+  /// Only useful once a user has permanently denied -- Android won't
+  /// show its own prompt again after that, so re-enabling has to go
+  /// through the OS Settings app instead.
+  Future<void> openAppSettings() => Geolocator.openAppSettings();
+
   /// Turns coordinates back into a short human-readable address, e.g.
   /// "5th Block, Koramangala" -- best-effort: returns null on any
   /// failure (no network, no geocoder on this device, nothing usable in

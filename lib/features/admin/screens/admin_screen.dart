@@ -9,7 +9,10 @@ import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/admin_dispute.dart';
 import '../../../models/kyc_submission.dart';
+import '../../../models/user_report.dart';
 import '../admin_repository.dart';
+
+enum _AdminTab { kyc, disputes, reports }
 
 /// The hidden operations surface (wave 7.3): approve or reject KYC
 /// submissions and close disputes, so neither needs the Supabase console
@@ -26,7 +29,8 @@ class _AdminScreenState extends State<AdminScreen> {
   final _repository = AdminRepository();
   late Future<List<KycSubmission>> _kycFuture;
   late Future<List<AdminDispute>> _disputesFuture;
-  bool _showingKyc = true;
+  late Future<List<UserReport>> _reportsFuture;
+  _AdminTab _tab = _AdminTab.kyc;
   String? _busyId;
 
   @override
@@ -38,11 +42,12 @@ class _AdminScreenState extends State<AdminScreen> {
   void _load() {
     _kycFuture = _repository.fetchKycSubmissions(status: 'pending');
     _disputesFuture = _repository.fetchDisputes(status: 'open');
+    _reportsFuture = _repository.fetchReports(status: 'open');
   }
 
   Future<void> _refresh() async {
     setState(_load);
-    await Future.wait([_kycFuture, _disputesFuture]);
+    await Future.wait([_kycFuture, _disputesFuture, _reportsFuture]);
   }
 
   Future<void> _runAction(String id, Future<void> Function() action) async {
@@ -112,6 +117,52 @@ class _AdminScreenState extends State<AdminScreen> {
         () => _repository.closeDispute(dispute.id),
       );
 
+  Future<void> _resolveReport(UserReport report) => _runAction(
+        report.id,
+        () => _repository.resolveReport(report.id),
+      );
+
+  Future<void> _viewKycDocument(KycSubmission submission) async {
+    try {
+      final url = await _repository.getKycDocumentUrl(submission.idDocumentUrl);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 200,
+                    color: AppColors.card,
+                    alignment: Alignment.center,
+                    child: const Text('Could not load this document'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load document: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,26 +178,38 @@ class _AdminScreenState extends State<AdminScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const TopBar(eyebrow: 'OPERATIONS', title: 'Admin'),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
-                  child: Row(
+                SizedBox(
+                  height: 42,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: kGutter),
                     children: [
                       ChoicePill(
                         label: 'Pending KYC',
-                        selected: _showingKyc,
-                        onTap: () => setState(() => _showingKyc = true),
+                        selected: _tab == _AdminTab.kyc,
+                        onTap: () => setState(() => _tab = _AdminTab.kyc),
                       ),
                       const SizedBox(width: 8),
                       ChoicePill(
                         label: 'Open disputes',
-                        selected: !_showingKyc,
-                        onTap: () => setState(() => _showingKyc = false),
+                        selected: _tab == _AdminTab.disputes,
+                        onTap: () => setState(() => _tab = _AdminTab.disputes),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoicePill(
+                        label: 'Reports',
+                        selected: _tab == _AdminTab.reports,
+                        onTap: () => setState(() => _tab = _AdminTab.reports),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (_showingKyc) _buildKycList() else _buildDisputeList(),
+                switch (_tab) {
+                  _AdminTab.kyc => _buildKycList(),
+                  _AdminTab.disputes => _buildDisputeList(),
+                  _AdminTab.reports => _buildReportsList(),
+                },
               ],
             ),
           ),
@@ -190,6 +253,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 isBusy: _busyId == submission.profileId,
                 onApprove: () => _approve(submission),
                 onReject: () => _reject(submission),
+                onViewDocument: () => _viewKycDocument(submission),
               ),
           ],
         );
@@ -237,6 +301,47 @@ class _AdminScreenState extends State<AdminScreen> {
       },
     );
   }
+
+  Widget _buildReportsList() {
+    return FutureBuilder<List<UserReport>>(
+      future: _reportsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorView(
+            message: 'Could not load reports: ${snapshot.error}',
+            onRetry: _refresh,
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const LoadingView();
+        }
+        final reports = snapshot.data!;
+        if (reports.isEmpty) {
+          return const EmptyView(
+            icon: Icons.shield_outlined,
+            title: 'No open reports',
+            message: 'Nothing needs your attention right now.',
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeading(
+              title: 'Reported users',
+              actionLabel: '${reports.length}',
+              topPadding: 18,
+            ),
+            for (final report in reports)
+              _ReportCard(
+                report: report,
+                isBusy: _busyId == report.id,
+                onResolve: () => _resolveReport(report),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _KycCard extends StatelessWidget {
@@ -245,12 +350,14 @@ class _KycCard extends StatelessWidget {
     required this.isBusy,
     required this.onApprove,
     required this.onReject,
+    required this.onViewDocument,
   });
 
   final KycSubmission submission;
   final bool isBusy;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final VoidCallback onViewDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -287,14 +394,12 @@ class _KycCard extends StatelessWidget {
               style: AppText.bodyMuted.copyWith(fontSize: 10),
             ),
             const SizedBox(height: 6),
-            // The bucket is private, so the path is shown rather than the
-            // image -- opening it needs a signed URL, which is a console
-            // step for now.
-            Text(
-              'Document: ${submission.idDocumentUrl}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.bodyMuted.copyWith(fontSize: 10),
+            const SizedBox(height: 10),
+            OutlineButton(
+              label: 'View document',
+              icon: Icons.image_outlined,
+              margin: EdgeInsets.zero,
+              onPressed: onViewDocument,
             ),
             const SizedBox(height: 14),
             if (isBusy)
@@ -401,6 +506,77 @@ class _DisputeCard extends StatelessWidget {
               margin: EdgeInsets.zero,
               isLoading: isBusy,
               onPressed: onClose,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportCard extends StatelessWidget {
+  const _ReportCard({
+    required this.report,
+    required this.isBusy,
+    required this.onResolve,
+  });
+
+  final UserReport report;
+  final bool isBusy;
+  final VoidCallback onResolve;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: AppCard(
+        radius: 19,
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const SoftIcon(
+                  Icons.shield_outlined,
+                  background: Color(0x1AD94B48),
+                  foreground: AppColors.destructive,
+                  size: 42,
+                  iconSize: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(report.reportedName, style: AppText.cardTitleLarge),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Reported by ${report.reporterName}',
+                        style: AppText.bodyMuted.copyWith(fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '"${report.reason}"',
+              style: AppText.body.copyWith(fontSize: 12.5, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              formatDateTime(report.createdAt),
+              style: AppText.bodyMuted.copyWith(fontSize: 10),
+            ),
+            const SizedBox(height: 14),
+            OutlineButton(
+              label: 'Mark reviewed',
+              icon: Icons.check_rounded,
+              margin: EdgeInsets.zero,
+              isLoading: isBusy,
+              onPressed: onResolve,
             ),
           ],
         ),

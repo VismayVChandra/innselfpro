@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/location_service.dart';
+import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -235,6 +236,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   }
 
   Future<void> _useCurrentLocation() async {
+    if (!await confirmLocationUse(context, _locationService) || !mounted) return;
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
     if (location == null) {

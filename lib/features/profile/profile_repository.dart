@@ -145,6 +145,20 @@ class ProfileRepository {
     ]);
   }
 
+  /// Aadhaar (exactly 12 digits once formatting is stripped) is masked
+  /// to its last 4 digits before it ever reaches the database, matching
+  /// UIDAI's own masked-Aadhaar convention -- the Aadhaar Act restricts
+  /// how private entities may store the full number. Other ID types
+  /// (PAN, Voter ID, Driving Licence) aren't Aadhaar-shaped and pass
+  /// through unchanged.
+  String _maskIfAadhaar(String idNumber) {
+    final digitsOnly = idNumber.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length == 12) {
+      return 'XXXX-XXXX-${digitsOnly.substring(8)}';
+    }
+    return idNumber.trim();
+  }
+
   Future<void> upsertTechnicianKyc({
     required String idNumber,
     required String documentPath,
@@ -152,7 +166,7 @@ class ProfileRepository {
     final uid = supabase.auth.currentUser!.id;
     await supabase.from('technician_kyc').upsert({
       'profile_id': uid,
-      'id_number': idNumber,
+      'id_number': _maskIfAadhaar(idNumber),
       'id_document_url': documentPath,
       // Resubmitting after a rejection puts the record back in the
       // queue -- otherwise a rejected technician could fix their

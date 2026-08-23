@@ -28,6 +28,7 @@ import '../../payments/payment_service.dart';
 import '../../payments/payments_repository.dart';
 import '../../profile/profile_repository.dart';
 import '../../profile/widgets/profile_widgets.dart';
+import '../../safety/safety_repository.dart';
 import '../widgets/price_guidance_hint.dart';
 import 'post_job_screen.dart';
 import '../../reviews/reviews_repository.dart';
@@ -1043,6 +1044,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   builder: (context, unreadSnapshot) => _ContactCard(
                     label: 'Your customer',
                     profile: contact.profile,
+                    jobId: _job.id,
                     rating: contact.rating,
                     reviewCount: contact.reviewCount,
                     onMessage: _openChat,
@@ -1162,6 +1164,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   builder: (context, unreadSnapshot) => _ContactCard(
                     label: 'Your technician',
                     profile: contact.profile,
+                    jobId: _job.id,
                     rating: contact.rating,
                     reviewCount: contact.reviewCount,
                     onMessage: _openChat,
@@ -2111,6 +2114,7 @@ class _ContactCard extends StatelessWidget {
   const _ContactCard({
     required this.label,
     required this.profile,
+    required this.jobId,
     this.rating,
     this.reviewCount = 0,
     this.onMessage,
@@ -2119,6 +2123,7 @@ class _ContactCard extends StatelessWidget {
 
   final String label;
   final Profile profile;
+  final String jobId;
   final double? rating;
   final int reviewCount;
 
@@ -2137,6 +2142,107 @@ class _ContactCard extends StatelessWidget {
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(failureMessage)));
+    }
+  }
+
+  Future<void> _showSafetyMenu(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: AppColors.destructive),
+              title: const Text('Report'),
+              onTap: () => Navigator.of(sheetContext).pop('report'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.block_outlined, color: AppColors.destructive),
+              title: Text('Block ${profile.fullName}'),
+              onTap: () => Navigator.of(sheetContext).pop('block'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    if (action == 'report') {
+      await _reportFlow(context);
+    } else {
+      await _blockFlow(context);
+    }
+  }
+
+  Future<void> _reportFlow(BuildContext context) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Report ${profile.fullName}?'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'What happened?'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty || !context.mounted) return;
+    try {
+      await SafetyRepository().reportUser(reportedId: profile.id, reason: reason, jobId: jobId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Report submitted')));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not submit report: $e')));
+    }
+  }
+
+  Future<void> _blockFlow(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Block ${profile.fullName}?'),
+        content: const Text(
+          'They will no longer be able to message you. You can unblock them later from your profile.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await SafetyRepository().blockUser(profile.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${profile.fullName} blocked')));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not block: $e')));
     }
   }
 
@@ -2245,6 +2351,11 @@ class _ContactCard extends StatelessWidget {
                   const SnackBar(content: Text('Phone number copied')),
                 );
               },
+            ),
+            const SizedBox(width: 8),
+            _ContactAction(
+              icon: Icons.more_vert_rounded,
+              onTap: () => _showSafetyMenu(context),
             ),
           ],
         ),

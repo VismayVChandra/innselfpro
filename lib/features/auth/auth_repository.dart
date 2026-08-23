@@ -34,6 +34,27 @@ class AuthRepository {
     return supabase.auth.resend(type: OtpType.signup, email: email);
   }
 
+  /// Sends a recovery email whose link opens this app directly (see the
+  /// intent-filter for the innself://reset-callback scheme in
+  /// AndroidManifest.xml) rather than a dead web redirect -- unlike
+  /// signup confirmation, changing a password is a client-side action
+  /// that can't complete before the redirect fires, so this genuinely
+  /// needs deep linking rather than being able to lean on the emailed
+  /// link alone.
+  Future<void> resetPasswordForEmail(String email) {
+    return supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'innself://reset-callback',
+    );
+  }
+
+  /// Sets a new password for the session the recovery deep link just
+  /// established. Only valid to call right after an
+  /// AuthChangeEvent.passwordRecovery event.
+  Future<void> updatePassword(String newPassword) {
+    return supabase.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   /// Clears this device's push token first -- otherwise a shared phone
   /// keeps notifying whoever just signed out.
   Future<void> signOut() async {

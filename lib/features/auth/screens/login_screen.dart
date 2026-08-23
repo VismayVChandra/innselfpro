@@ -7,6 +7,7 @@ import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../auth_repository.dart';
+import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -170,6 +171,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                   child: const Text("New to InnSelf? Create an account"),
+                ),
+                TextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
+                            ),
+                          ),
+                  child: const Text('Forgot password?'),
                 ),
                 const FootNote(
                   'Email and password only. We never post anything on your behalf.',

@@ -14,6 +14,7 @@ import '../../../models/technician_details.dart';
 import '../../admin/admin_repository.dart';
 import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
+import '../../safety/screens/blocked_users_screen.dart';
 import '../../jobs/jobs_repository.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
@@ -308,6 +309,12 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                                       true
                                   ? summary.details!.serviceArea!
                                   : 'Not set',
+                            ),
+                            SettingsRow(
+                              icon: Icons.block_outlined,
+                              label: 'Blocked users',
+                              value: 'People you have blocked from messaging you',
+                              onTap: () => _push(const BlockedUsersScreen()),
                             ),
                             SettingsRow(
                               icon: isAvailable

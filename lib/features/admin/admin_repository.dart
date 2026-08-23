@@ -1,6 +1,7 @@
 import '../../core/supabase_client.dart';
 import '../../models/admin_dispute.dart';
 import '../../models/kyc_submission.dart';
+import '../../models/user_report.dart';
 
 /// Everything the hidden admin surface needs. Every call here goes
 /// through a SECURITY DEFINER function that re-checks is_admin()
@@ -37,6 +38,16 @@ class AdminRepository {
     });
   }
 
+  /// Short-lived signed URL for a private technician-kyc object --
+  /// createSignedUrl still runs under storage RLS, so this only
+  /// resolves at all because of the technician_kyc_select_admin policy
+  /// (migration 016). Expires in 10 minutes; call again to view again.
+  Future<String> getKycDocumentUrl(String path) async {
+    final result =
+        await supabase.storage.from('technician-kyc').createSignedUrl(path, 600);
+    return result;
+  }
+
   Future<List<AdminDispute>> fetchDisputes({String? status}) async {
     final rows = await supabase.rpc('admin_list_disputes', params: {'p_status': status});
     return ((rows ?? []) as List)
@@ -48,5 +59,18 @@ class AdminRepository {
   /// (migration 015) is the policy that allows it.
   Future<void> closeDispute(String disputeId) async {
     await supabase.from('disputes').update({'status': 'closed'}).eq('id', disputeId);
+  }
+
+  Future<List<UserReport>> fetchReports({String? status}) async {
+    final rows = await supabase.rpc('admin_list_reports', params: {'p_status': status});
+    return ((rows ?? []) as List)
+        .map((e) => UserReport.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// user_reports_update_admin (migration 016) is the policy that
+  /// allows this -- same shape as closeDispute.
+  Future<void> resolveReport(String reportId) async {
+    await supabase.from('user_reports').update({'status': 'reviewed'}).eq('id', reportId);
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/location_service.dart';
+import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -58,6 +59,7 @@ class _TechnicianProfileSetupScreenState
   }
 
   Future<void> _setLocation() async {
+    if (!await confirmLocationUse(context, _locationService) || !mounted) return;
     setState(() => _isLocating = true);
     final location = await _locationService.getCurrentLocation();
     if (location == null) {
@@ -235,6 +237,13 @@ class _TechnicianProfileSetupScreenState
                   hint: 'Aadhaar, PAN, Voter ID...',
                   icon: Icons.badge_outlined,
                   capitalization: TextCapitalization.characters,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(kTextGutter, 7, kTextGutter, 0),
+                  child: Text(
+                    'If you enter your Aadhaar number, only the last 4 digits are stored.',
+                    style: AppText.bodyMuted,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _KycUpload(
