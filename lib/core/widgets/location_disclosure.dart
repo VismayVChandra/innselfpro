@@ -15,6 +15,36 @@ Future<bool> confirmLocationUse(
   BuildContext context,
   LocationService locationService,
 ) async {
+  // Checked before permission, since permission being granted is moot if
+  // the phone's location is switched off entirely -- geolocator otherwise
+  // fails silently here (getCurrentLocation just returns null), leaving
+  // the user staring at a request that visibly does nothing.
+  if (!await locationService.isLocationServiceEnabled()) {
+    if (!context.mounted) return false;
+    final openSettings = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Turn on location'),
+        content: const Text(
+          "Your phone's location is switched off, so InnSelf can't read it. Turn it on, then tap "
+          '"Use current location" again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Turn on'),
+          ),
+        ],
+      ),
+    );
+    if (openSettings == true) await locationService.openLocationSettings();
+    return false;
+  }
+
   final status = await locationService.currentPermissionStatus();
   if (status == LocationPermission.always || status == LocationPermission.whileInUse) {
     return true; // Already granted -- nothing to explain.

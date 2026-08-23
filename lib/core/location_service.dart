@@ -40,6 +40,13 @@ class LocationService {
   /// through the OS Settings app instead.
   Future<void> openAppSettings() => Geolocator.openAppSettings();
 
+  Future<bool> isLocationServiceEnabled() => Geolocator.isLocationServiceEnabled();
+
+  /// Opens the phone's location toggle -- distinct from [openAppSettings],
+  /// which opens InnSelf's own permission page. Location being off is a
+  /// phone-wide setting, not something scoped to this app.
+  Future<void> openLocationSettings() => Geolocator.openLocationSettings();
+
   /// Turns coordinates back into a short human-readable address, e.g.
   /// "5th Block, Koramangala" -- best-effort: returns null on any
   /// failure (no network, no geocoder on this device, nothing usable in
