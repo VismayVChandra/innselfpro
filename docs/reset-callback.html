@@ -33,22 +33,24 @@
   <p id="debug" style="margin-top:28px;font-size:11px;color:var(--ink-soft);word-break:break-all;max-width:90vw;"></p>
 </div>
 <script>
-  // Password recovery hands the session back in the URL fragment
-  // (#access_token=...&refresh_token=...&type=recovery) -- carried
-  // through unchanged to the app's own innself:// scheme, which
-  // supabase_flutter's bundled deep-link handling picks up from there.
-  // Routed through this real page rather than a server-side redirect
-  // straight to innself:// because Gmail's own link-wrapper
-  // (google.com/url?q=...) doesn't reliably forward a raw redirect to a
-  // non-http(s) scheme -- an actual page with a tappable link works
-  // everywhere a bare redirect doesn't.
-  var hash = window.location.hash || '';
-  var target = 'innself://reset-callback' + hash;
+  // Supabase's PKCE flow (its default, and what this app uses) hands
+  // recovery back as a one-time ?code=... QUERY PARAMETER, not the
+  // older implicit-flow #access_token=... fragment -- confirmed live
+  // via the debug line below, which showed a real ?code= on this exact
+  // page. Carried through unchanged to the app's own innself:// scheme,
+  // which supabase_flutter's bundled deep-link handling exchanges for a
+  // session from there. Routed through this real page rather than a
+  // server-side redirect straight to innself:// because Gmail's own
+  // link-wrapper (google.com/url?q=...) doesn't reliably forward a raw
+  // redirect to a non-http(s) scheme -- an actual page with a tappable
+  // link works everywhere a bare redirect doesn't.
+  var params = window.location.search || '';
+  var target = 'innself://reset-callback' + params;
   document.getElementById('open-link').href = target;
   document.getElementById('debug').textContent =
     'full URL received: ' + window.location.href;
 
-  if (hash.indexOf('access_token') === -1) {
+  if (params.indexOf('code=') === -1) {
     document.getElementById('status').textContent =
       "This link looks incomplete -- go back to the email and tap it again, or request a new one from the app.";
   } else {
