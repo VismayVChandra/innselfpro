@@ -6,12 +6,12 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/layout.dart';
 import '../auth_repository.dart';
 
-/// Pushed by main.dart the moment an AuthChangeEvent.passwordRecovery
-/// fires -- i.e. right after the user taps the link from a
-/// resetPasswordForEmail email and the deep link hands a live session
-/// back to the app. Setting a password here is what actually consumes
-/// that session; there's no other way back to a normal signed-in state
-/// from a recovery session.
+/// Rendered directly by AuthGate whenever the latest auth event is
+/// AuthChangeEvent.passwordRecovery -- i.e. right after the user taps
+/// the link from a resetPasswordForEmail email and the deep link hands
+/// a live session back to the app. Setting a password here is what
+/// actually consumes that session; there's no other way back to a
+/// normal signed-in state from a recovery session.
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
 
@@ -43,10 +43,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password updated')),
       );
-      // AuthGate's session stream already reflects the recovery
-      // session as a normal signed-in one -- popping just clears this
-      // screen off the stack to reveal ProfileGate underneath.
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // No manual navigation needed -- updateUser() itself fires
+      // AuthChangeEvent.userUpdated, which moves AuthGate's own
+      // StreamBuilder off the passwordRecovery branch and on to
+      // ProfileGate reactively, the same way every other auth
+      // transition in this app already works.
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

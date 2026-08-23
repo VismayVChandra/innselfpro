@@ -1,10 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/supabase_client.dart';
-import 'features/auth/screens/reset_password_screen.dart';
 import 'features/notifications/push_notifications_service.dart';
 
 Future<void> main() async {
@@ -15,15 +13,11 @@ Future<void> main() async {
 
   // supabase_flutter already watches for the innself://reset-callback
   // deep link (via its bundled app_links dependency) and exchanges it
-  // for a session on its own -- this just reacts to that by pushing the
-  // screen that actually sets the new password.
-  supabase.auth.onAuthStateChange.listen((data) {
-    if (data.event == AuthChangeEvent.passwordRecovery) {
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
-      );
-    }
-  });
-
+  // for a session on its own. AuthGate reacts to that reactively (it
+  // renders ResetPasswordScreen whenever the latest auth event is
+  // passwordRecovery) rather than this file pushing a route via
+  // navigatorKey -- that avoided a real startup race, since a stream
+  // listener registered here could subscribe after the cold-start deep
+  // link had already been processed and its one-off event emitted.
   runApp(const InnselfApp());
 }
