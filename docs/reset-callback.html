@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continue in InnSelf</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 20vh; }
+  .btn {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 14px 28px;
+    background: var(--coral);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 14px;
+    text-decoration: none;
+  }
+  .hint { margin-top: 20px; font-size: 13px; color: var(--ink-soft); max-width: 40ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mark" style="width:44px;height:44px;border-radius:14px;background:var(--coral);"></div>
+  <h1 style="margin-top:16px;">Continue in InnSelf</h1>
+  <p id="status">Opening the app&hellip;</p>
+  <a id="open-link" class="btn" href="#">Open InnSelf</a>
+  <p class="hint">If nothing happens, make sure InnSelf is installed, then tap the button above. This link only works on the phone it was requested from.</p>
+</div>
+<script>
+  // Password recovery hands the session back in the URL fragment
+  // (#access_token=...&refresh_token=...&type=recovery) -- carried
+  // through unchanged to the app's own innself:// scheme, which
+  // supabase_flutter's bundled deep-link handling picks up from there.
+  // Routed through this real page rather than a server-side redirect
+  // straight to innself:// because Gmail's own link-wrapper
+  // (google.com/url?q=...) doesn't reliably forward a raw redirect to a
+  // non-http(s) scheme -- an actual page with a tappable link works
+  // everywhere a bare redirect doesn't.
+  var hash = window.location.hash || '';
+  var target = 'innself://reset-callback' + hash;
+  document.getElementById('open-link').href = target;
+
+  if (hash.indexOf('access_token') === -1) {
+    document.getElementById('status').textContent =
+      "This link looks incomplete -- go back to the email and tap it again, or request a new one from the app.";
+  } else {
+    // Auto-attempt still helps on browsers that allow it; the visible
+    // button above is the reliable fallback for the ones that don't.
+    window.location.href = target;
+  }
+</script>
+</body>
+</html>

@@ -34,17 +34,20 @@ class AuthRepository {
     return supabase.auth.resend(type: OtpType.signup, email: email);
   }
 
-  /// Sends a recovery email whose link opens this app directly (see the
-  /// intent-filter for the innself://reset-callback scheme in
-  /// AndroidManifest.xml) rather than a dead web redirect -- unlike
-  /// signup confirmation, changing a password is a client-side action
-  /// that can't complete before the redirect fires, so this genuinely
-  /// needs deep linking rather than being able to lean on the emailed
-  /// link alone.
+  /// Sends a recovery email pointing at a real hosted page
+  /// (docs/reset-callback.html) rather than straight at the
+  /// innself://reset-callback scheme -- Gmail wraps every link through
+  /// its own google.com/url?q=... redirector before forwarding it, and
+  /// that wrapper doesn't reliably carry a server-side redirect through
+  /// to a non-http(s) scheme (confirmed live: the request succeeds on
+  /// Supabase's side, 303, but the phone never leaves the wrapper). A
+  /// real page loads fine through the wrapper and then hands off to the
+  /// app itself via a visible button, which mobile browsers allow much
+  /// more reliably than a bare cross-scheme redirect.
   Future<void> resetPasswordForEmail(String email) {
     return supabase.auth.resetPasswordForEmail(
       email,
-      redirectTo: 'innself://reset-callback',
+      redirectTo: 'https://vismayvchandra.github.io/innselfpro/reset-callback.html',
     );
   }
 
