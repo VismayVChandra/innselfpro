@@ -5,6 +5,7 @@ class KycSubmission {
   final String profileId;
   final String fullName;
   final String phone;
+  final String? documentType;
   final String idNumber;
   final String idDocumentUrl;
   final String status;
@@ -15,6 +16,7 @@ class KycSubmission {
     required this.profileId,
     required this.fullName,
     required this.phone,
+    this.documentType,
     required this.idNumber,
     required this.idDocumentUrl,
     required this.status,
@@ -26,6 +28,7 @@ class KycSubmission {
         profileId: map['profile_id'] as String,
         fullName: map['full_name'] as String? ?? '',
         phone: map['phone'] as String? ?? '',
+        documentType: map['document_type'] as String?,
         idNumber: map['id_number'] as String? ?? '',
         idDocumentUrl: map['id_document_url'] as String? ?? '',
         status: map['status'] as String,

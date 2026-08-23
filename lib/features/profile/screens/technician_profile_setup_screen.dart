@@ -40,7 +40,10 @@ class _TechnicianProfileSetupScreenState
   late final Future<List<Category>> _categoriesFuture =
       JobsRepository().fetchCategories();
 
+  static const _documentTypes = ['PAN', 'Voter ID', 'Driving Licence'];
+
   final Set<int> _selectedSkillCategoryIds = {};
+  String? _documentType;
   File? _kycDocument;
   bool _isLoading = false;
   bool _isLocating = false;
@@ -98,6 +101,24 @@ class _TechnicianProfileSetupScreenState
       );
       return;
     }
+    if (_documentType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select which ID you\'re uploading')),
+      );
+      return;
+    }
+    // Belt-and-braces beyond the removed Aadhaar option: catches someone
+    // who picks PAN/Voter ID/Driving Licence but types an Aadhaar-shaped
+    // number anyway (by habit or by mistake).
+    if (_idNumberController.text.replaceAll(RegExp(r'\D'), '').length == 12) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("That looks like an Aadhaar number -- we don't accept Aadhaar. "
+              'Enter the number from your PAN, Voter ID, or Driving Licence instead.'),
+        ),
+      );
+      return;
+    }
     if (_kycDocument == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Upload a KYC ID document photo')),
@@ -121,6 +142,7 @@ class _TechnicianProfileSetupScreenState
       );
       await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
       await _profileRepository.upsertTechnicianKyc(
+        documentType: _documentType!,
         idNumber: _idNumberController.text.trim(),
         documentPath: documentPath,
       );
@@ -231,17 +253,34 @@ class _TechnicianProfileSetupScreenState
                   onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                 ),
                 const SectionHeading(title: 'Identity check'),
-                const FieldLabel('Government ID number'),
+                const FieldLabel('Which ID are you uploading?'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: kGutter),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final type in _documentTypes)
+                        ChoicePill(
+                          label: type,
+                          selected: _documentType == type,
+                          onTap: () => setState(() => _documentType = type),
+                        ),
+                    ],
+                  ),
+                ),
+                const FieldLabel('ID number', topPadding: 16),
                 _field(
                   controller: _idNumberController,
-                  hint: 'Aadhaar, PAN, Voter ID...',
+                  hint: 'As printed on the document',
                   icon: Icons.badge_outlined,
                   capitalization: TextCapitalization.characters,
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(kTextGutter, 7, kTextGutter, 0),
                   child: Text(
-                    'If you enter your Aadhaar number, only the last 4 digits are stored.',
+                    "We don't accept Aadhaar -- make sure the photo you upload doesn't show an "
+                    'Aadhaar card either.',
                     style: AppText.bodyMuted,
                   ),
                 ),

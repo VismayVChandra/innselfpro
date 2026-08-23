@@ -380,7 +380,7 @@ class _KycCard extends StatelessWidget {
                       Text(submission.fullName, style: AppText.cardTitleLarge),
                       const SizedBox(height: 3),
                       Text(
-                        '${submission.phone}  ·  ${submission.idNumber}',
+                        '${submission.phone}  ·  ${submission.documentType ?? 'ID'}: ${submission.idNumber}',
                         style: AppText.bodyMuted.copyWith(fontSize: 10.5),
                       ),
                     ],
