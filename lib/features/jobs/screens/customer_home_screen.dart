@@ -81,6 +81,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
     await _future;
   }
 
+  Future<void> _pickCategoryAndPost(Category tapped, List<Category> allCategories) async {
+    final resolved = await resolveCategoryTap(context, tapped, allCategories);
+    if (resolved != null && mounted) await _openPostJob(category: resolved);
+  }
+
   Future<void> _openPostJob({Category? category}) async {
     final posted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -139,7 +144,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
                   return _HomeBody(
                     data: snapshot.data!,
                     onOpenTab: widget.onOpenTab,
-                    onPickCategory: (c) => _openPostJob(category: c),
+                    onPickCategory: (c) => _pickCategoryAndPost(c, snapshot.data!.categories),
                     onOpenPostJob: _openPostJob,
                     onOpenJob: _openJob,
                   );
@@ -266,7 +271,7 @@ class _HomeBody extends StatelessWidget {
           onAction: onOpenPostJob,
         ),
         CategoryGrid(
-          categories: data.categories,
+          categories: data.categories.where((c) => c.isTopLevel).toList(),
           limit: 6,
           onTap: onPickCategory,
         ),

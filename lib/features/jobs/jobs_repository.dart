@@ -7,6 +7,11 @@ import '../../models/job.dart';
 const _jobSelect = '*, categories(name)';
 
 class JobsRepository {
+  /// The full flat list -- top-level categories and their subcategories
+  /// together (migration 020). Callers that only want top-level tiles
+  /// (the home grid, technician skill selection) filter client-side via
+  /// [Category.isTopLevel] rather than a separate query, since most
+  /// screens need the full list anyway to resolve a job's category name.
   Future<List<Category>> fetchCategories() async {
     final data = await supabase.from('categories').select().order('name');
     return (data as List)

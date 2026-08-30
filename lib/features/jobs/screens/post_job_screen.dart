@@ -62,6 +62,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
   late final Future<List<Category>> _categoriesFuture;
   late final Future<List<CustomerAddress>> _addressesFuture;
   int? _selectedCategoryId;
+
+  /// Set alongside [_selectedCategoryId] whenever it's a subcategory --
+  /// shown below the grid, since a subcategory (e.g. "Fridge Repair")
+  /// isn't itself one of the top-level tiles CategoryGrid renders, so
+  /// nothing in the grid would otherwise show as selected.
+  String? _selectedCategoryLabel;
   Future<({double average, double min, double max, int count})?>? _priceGuidanceFuture;
   List<File> _photos = [];
   bool _isLoading = false;
@@ -80,6 +86,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
     _categoriesFuture = _jobsRepository.fetchCategories();
     _addressesFuture = _addressesRepository.fetchMyAddresses();
     _selectedCategoryId = widget.initialCategory?.id;
+    if (widget.initialCategory != null && !widget.initialCategory!.isTopLevel) {
+      _selectedCategoryLabel = widget.initialCategory!.name;
+    }
     if (_selectedCategoryId != null) {
       _priceGuidanceFuture = _jobsRepository.fetchPriceGuidance(_selectedCategoryId!);
     }
@@ -310,16 +319,35 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       return const LoadingView(height: 140);
                     }
                     return CategoryGrid(
-                      categories: snapshot.data!,
+                      categories: snapshot.data!.where((c) => c.isTopLevel).toList(),
                       selectedId: _selectedCategoryId,
-                      onTap: (category) => setState(() {
-                        _selectedCategoryId = category.id;
-                        _priceGuidanceFuture =
-                            _jobsRepository.fetchPriceGuidance(category.id);
-                      }),
+                      onTap: (category) async {
+                        final resolved =
+                            await resolveCategoryTap(context, category, snapshot.data!);
+                        if (resolved == null || !mounted) return;
+                        setState(() {
+                          _selectedCategoryId = resolved.id;
+                          _selectedCategoryLabel =
+                              resolved.isTopLevel ? null : resolved.name;
+                          _priceGuidanceFuture =
+                              _jobsRepository.fetchPriceGuidance(resolved.id);
+                        });
+                      },
                     );
                   },
                 ),
+                if (_selectedCategoryLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(kTextGutter, 9, kTextGutter, 0),
+                    child: Text(
+                      'Selected: $_selectedCategoryLabel',
+                      style: AppText.bodyMuted.copyWith(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
                 if (_priceGuidanceFuture != null) ...[
                   const SizedBox(height: 12),
                   PriceGuidanceHint(future: _priceGuidanceFuture!),

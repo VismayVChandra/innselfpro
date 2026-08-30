@@ -68,7 +68,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadTechnicianDetails() async {
     try {
-      final categories = await JobsRepository().fetchCategories();
+      // Top-level only -- see technician_profile_setup_screen.dart's
+      // _categoriesFuture for why skills stay at the category level.
+      final categories = (await JobsRepository().fetchCategories())
+          .where((c) => c.isTopLevel)
+          .toList();
       final details = await _profileRepository.fetchMyTechnicianDetails();
       final skillIds = await _profileRepository.fetchMySkillCategoryIds();
       if (!mounted) return;

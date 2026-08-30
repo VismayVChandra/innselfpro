@@ -37,8 +37,12 @@ class _TechnicianProfileSetupScreenState
   final _idNumberController = TextEditingController();
   final _profileRepository = ProfileRepository();
   final _locationService = LocationService();
-  late final Future<List<Category>> _categoriesFuture =
-      JobsRepository().fetchCategories();
+  /// Top-level only -- a technician's skills are set at the category
+  /// level, not per subcategory (migration 020); the feed/notification
+  /// matching broadens a top-level skill to cover its subcategories.
+  late final Future<List<Category>> _categoriesFuture = JobsRepository()
+      .fetchCategories()
+      .then((list) => list.where((c) => c.isTopLevel).toList());
 
   static const _documentTypes = ['PAN', 'Voter ID', 'Driving Licence'];
 

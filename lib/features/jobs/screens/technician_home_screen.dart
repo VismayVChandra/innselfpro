@@ -97,6 +97,23 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
         for (final category in _categories) category.id: category.name,
       };
 
+  /// A technician's skill (and the category filter chips) only ever
+  /// hold top-level ids -- picking a specific subcategory isn't offered
+  /// client-side. A job can still be posted under a subcategory though
+  /// (migration 020), so matching by exact id alone would silently hide
+  /// e.g. a "Fridge Repair" job from a technician skilled in "Appliance
+  /// Repair". This widens a set of top-level ids to also include every
+  /// subcategory under them.
+  Set<int> _withSubcategories(Iterable<int> topLevelIds) {
+    final ids = topLevelIds.toSet();
+    for (final category in _categories) {
+      if (category.parentCategoryId != null && ids.contains(category.parentCategoryId)) {
+        ids.add(category.id);
+      }
+    }
+    return ids;
+  }
+
   bool get _hasBaseLocation => _baseLat != null && _baseLng != null;
 
   /// Null when either side's coordinates are missing -- distance simply
@@ -119,11 +136,11 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
         .map((j) => j.copyWithCategoryName(namesById[j.categoryId] ?? ''))
         .toList();
 
-    List<int>? categoryIds;
+    Set<int>? categoryIds;
     if (_selectedCategoryId == null) {
-      categoryIds = _mySkillCategoryIds.isEmpty ? null : _mySkillCategoryIds.toList();
+      categoryIds = _mySkillCategoryIds.isEmpty ? null : _withSubcategories(_mySkillCategoryIds);
     } else if (_selectedCategoryId != 0) {
-      categoryIds = [_selectedCategoryId!];
+      categoryIds = _withSubcategories([_selectedCategoryId!]);
     }
     if (categoryIds != null) {
       jobs = jobs.where((j) => categoryIds!.contains(j.categoryId)).toList();
@@ -258,7 +275,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                         ),
                         const SizedBox(height: 20),
                         _CategoryFilter(
-                          categories: _categories,
+                          categories: _categories.where((c) => c.isTopLevel).toList(),
                           selectedId: _selectedCategoryId,
                           onSelected: (id) => setState(() => _selectedCategoryId = id),
                         ),
