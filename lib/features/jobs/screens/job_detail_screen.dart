@@ -1846,6 +1846,30 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
+/// Opens turn-by-turn directions to the job in Google Maps (or whichever
+/// maps app the user has set as default) -- prefers the job's real
+/// lat/lng (migration 014) for an exact pin, falling back to the typed
+/// address text for older jobs posted before that column existed.
+Future<void> _openInMaps(BuildContext context, Job job) async {
+  final destination = job.hasLocation
+      ? '${job.lat},${job.lng}'
+      : Uri.encodeComponent(job.location);
+  final uri = Uri.parse(
+    'https://www.google.com/maps/dir/?api=1&destination=$destination',
+  );
+  bool launched;
+  try {
+    launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    launched = false;
+  }
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open Maps')),
+    );
+  }
+}
+
 /// Category, location and posting time in one card.
 class _JobFactsCard extends StatelessWidget {
   const _JobFactsCard({required this.job});
@@ -1870,7 +1894,12 @@ class _JobFactsCard extends StatelessWidget {
             text: job.categoryName,
           ),
           const SizedBox(height: 11),
-          _FactRow(icon: Icons.location_on_outlined, text: job.location),
+          _FactRow(
+            icon: Icons.location_on_outlined,
+            text: job.location,
+            onTap: () => _openInMaps(context, job),
+            trailing: Icons.directions_outlined,
+          ),
           const SizedBox(height: 11),
           _FactRow(
             icon: Icons.event_outlined,
@@ -1897,23 +1926,42 @@ class _JobFactsCard extends StatelessWidget {
 }
 
 class _FactRow extends StatelessWidget {
-  const _FactRow({required this.icon, required this.text});
+  const _FactRow({required this.icon, required this.text, this.onTap, this.trailing});
 
   final IconData icon;
   final String text;
 
+  /// Non-null makes the whole row tappable -- used for the address row
+  /// to open turn-by-turn directions; every other fact is inert.
+  final VoidCallback? onTap;
+  final IconData? trailing;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 17, color: AppColors.mutedForeground),
         const SizedBox(width: 11),
         Expanded(
-          child: Text(text, style: AppText.body.copyWith(fontSize: 12.5)),
+          child: Text(
+            text,
+            style: AppText.body.copyWith(
+              fontSize: 12.5,
+              color: onTap != null ? AppColors.primary : null,
+              decoration: onTap != null ? TextDecoration.underline : null,
+              decorationColor: onTap != null ? AppColors.primary : null,
+            ),
+          ),
         ),
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          Icon(trailing, size: 16, color: AppColors.primary),
+        ],
       ],
     );
+    if (onTap == null) return row;
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(8), child: row);
   }
 }
 
