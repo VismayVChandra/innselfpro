@@ -18,6 +18,12 @@ class Bid {
   /// resolved alongside the rating.
   final bool technicianIsVerified;
 
+  /// Set when the technician spends points to boost this bid's visibility
+  /// (migration 019) -- boosted bids sort first in the customer's list.
+  final DateTime? boostedAt;
+
+  bool get isBoosted => boostedAt != null;
+
   const Bid({
     required this.id,
     required this.jobId,
@@ -30,6 +36,7 @@ class Bid {
     this.technicianRating,
     this.technicianReviewCount = 0,
     this.technicianIsVerified = false,
+    this.boostedAt,
   });
 
   factory Bid.fromMap(Map<String, dynamic> map) => Bid(
@@ -43,6 +50,9 @@ class Bid {
         note: map['note'] as String?,
         status: map['status'] as String,
         createdAt: DateTime.parse(map['created_at'] as String),
+        boostedAt: map['boosted_at'] == null
+            ? null
+            : DateTime.parse(map['boosted_at'] as String),
       );
 
   Bid withRating({
@@ -62,5 +72,6 @@ class Bid {
         technicianRating: rating,
         technicianReviewCount: reviewCount,
         technicianIsVerified: isVerified,
+        boostedAt: boostedAt,
       );
 }

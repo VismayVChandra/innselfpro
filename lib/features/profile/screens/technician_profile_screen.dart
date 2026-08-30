@@ -20,6 +20,7 @@ import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../payments/payments_repository.dart';
 import '../../payments/screens/technician_wallet_screen.dart';
+import '../../points/screens/points_screen.dart';
 import '../../reviews/reviews_repository.dart';
 import '../../reviews/screens/ratings_screen.dart';
 import '../profile_repository.dart';
@@ -270,6 +271,13 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                                   '${formatRupees(summary.totalEarnings)} earned across ${summary.payments.length} paid job${summary.payments.length == 1 ? '' : 's'}',
                               onTap: () =>
                                   _push(const TechnicianWalletScreen()),
+                            ),
+                            SettingsRow(
+                              icon: Icons.stars_outlined,
+                              label: 'Points',
+                              value:
+                                  '${widget.profile.rewardPoints} pts  ·  boost bids to stand out',
+                              onTap: () => _push(const PointsScreen()),
                             ),
                             SettingsRow(
                               icon: Icons.star_outline_rounded,

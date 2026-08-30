@@ -14,6 +14,11 @@ class Profile {
   /// as a plain count, deliberately not used to block anything.
   final int lateCancellations;
 
+  /// Earned for on-time arrival/job completion (technician) or prompt
+  /// payment/leaving a review (customer) -- migration 019. Spent on
+  /// visibility boosts, never redeemable for money.
+  final int rewardPoints;
+
   const Profile({
     required this.id,
     required this.role,
@@ -22,6 +27,7 @@ class Profile {
     this.address,
     this.isVerified = false,
     this.lateCancellations = 0,
+    this.rewardPoints = 0,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -32,6 +38,7 @@ class Profile {
         address: map['address'] as String?,
         isVerified: map['is_verified'] as bool? ?? false,
         lateCancellations: map['late_cancellations'] as int? ?? 0,
+        rewardPoints: map['reward_points'] as int? ?? 0,
       );
 
   bool get isCustomer => role == 'customer';

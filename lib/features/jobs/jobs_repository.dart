@@ -84,7 +84,23 @@ class JobsRepository {
         .stream(primaryKey: ['id'])
         .eq('status', 'open')
         .order('created_at', ascending: false)
-        .map((rows) => rows.map((e) => Job.fromMap(e)).toList());
+        .map((rows) => rows.map((e) => Job.fromMap(e)).toList())
+        .map(_sortBoostedFirst);
+  }
+
+  /// .stream() only chains a single .order() -- boosted-first is applied
+  /// client-side on top of it instead. A partition (not List.sort, which
+  /// Dart doesn't guarantee stable) keeps the existing created_at-descending
+  /// order within each group.
+  List<Job> _sortBoostedFirst(List<Job> jobs) => [
+        ...jobs.where((j) => j.isBoosted),
+        ...jobs.where((j) => !j.isBoosted),
+      ];
+
+  /// Spends 50 points to pin this open job to the top of nearby
+  /// technicians' feeds (migration 019).
+  Future<void> boostJob(String jobId) async {
+    await supabase.rpc('boost_job', params: {'p_job_id': jobId});
   }
 
   Future<Job> fetchJobById(String id) async {

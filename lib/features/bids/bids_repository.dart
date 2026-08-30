@@ -47,7 +47,7 @@ class BidsRepository {
       final names = await _fetchProfileNames(technicianIds);
       final ratings = await fetchTechnicianRatings(technicianIds);
       final verified = await ProfileRepository().fetchVerifiedProfileIds(technicianIds);
-      return rows.map((row) {
+      final bids = rows.map((row) {
         final technicianId = row['technician_id'] as String;
         final rating = ratings[technicianId];
         return Bid(
@@ -62,9 +62,22 @@ class BidsRepository {
           technicianRating: rating?.average,
           technicianReviewCount: rating?.count ?? 0,
           technicianIsVerified: verified.contains(technicianId),
+          boostedAt: row['boosted_at'] == null
+              ? null
+              : DateTime.parse(row['boosted_at'] as String),
         );
       }).toList();
+      // .stream() only chains a single .order() -- boosted-first goes on
+      // top client-side. A partition (not List.sort, not stable in Dart)
+      // keeps the existing amount-ascending order within each group.
+      return [...bids.where((b) => b.isBoosted), ...bids.where((b) => !b.isBoosted)];
     });
+  }
+
+  /// Spends 50 points to pin this still-pending bid to the top of the
+  /// customer's list, highlighted (migration 019).
+  Future<void> boostBid(String bidId) async {
+    await supabase.rpc('boost_bid', params: {'p_bid_id': bidId});
   }
 
   Future<Map<String, String>> _fetchProfileNames(List<String> ids) async {

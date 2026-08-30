@@ -8,6 +8,7 @@ import '../../admin/admin_repository.dart';
 import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
 import '../../jobs/screens/saved_addresses_screen.dart';
+import '../../points/screens/points_screen.dart';
 import '../../safety/screens/blocked_users_screen.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
@@ -180,6 +181,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     value: 'Manage the addresses you post jobs from',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SavedAddressesScreen()),
+                    ),
+                  ),
+                  SettingsRow(
+                    icon: Icons.stars_outlined,
+                    label: 'Points',
+                    value: '${profile.rewardPoints} pts  ·  boost jobs to get more bids',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PointsScreen()),
                     ),
                   ),
                   SettingsRow(

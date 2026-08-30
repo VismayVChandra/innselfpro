@@ -119,6 +119,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isFlagging = false;
   bool _isCancelling = false;
   bool _isWithdrawingBid = false;
+  bool _isBoosting = false;
+  bool _isBoostingJob = false;
   bool _isRescheduling = false;
   File? _completionPhoto;
 
@@ -186,6 +188,28 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _cancellationFuture = _jobsRepository.fetchCancellation(updated.id);
       }
     });
+  }
+
+  /// Spends 50 reward points to pin this open job to the top of nearby
+  /// technicians' feeds (migration 019). Same trust-the-server pattern
+  /// as _boostBid -- balance and status are checked in boost_job itself.
+  Future<void> _boostJob() async {
+    setState(() => _isBoostingJob = true);
+    try {
+      await _jobsRepository.boostJob(_job.id);
+      await _refreshJob();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job boosted -- more technicians will see it first')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not boost job: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isBoostingJob = false);
+    }
   }
 
   /// "Can't make it" -- available to either party while a job is
@@ -445,6 +469,32 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isWithdrawingBid = false);
+    }
+  }
+
+  /// Spends 50 reward points to pin this pending bid to the top of the
+  /// customer's list (migration 019). The RPC itself checks the balance
+  /// and bid status server-side -- errors (not enough points, bid no
+  /// longer pending) surface via the same snackbar path as any other
+  /// repository call here, nothing pre-validated client-side.
+  Future<void> _boostBid(String bidId) async {
+    setState(() => _isBoosting = true);
+    try {
+      await _bidsRepository.boostBid(bidId);
+      if (!mounted) return;
+      setState(() {
+        _myBidFuture = _bidsRepository.fetchMyBidForJob(_job.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bid boosted -- it now shows first to the customer')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not boost bid: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isBoosting = false);
     }
   }
 
@@ -868,7 +918,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                               Text('Your bid is in', style: AppText.cardTitleLarge),
                               const SizedBox(height: 4),
                               Text(
-                                'You quoted ${formatRupees(myBid.amount)}  ·  ${humanizeStatus(myBid.status)}',
+                                'You quoted ${formatRupees(myBid.amount)}  ·  ${humanizeStatus(myBid.status)}'
+                                '${myBid.isBoosted ? '  ·  Boosted' : ''}',
                                 style: AppText.bodyMuted,
                               ),
                             ],
@@ -878,6 +929,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 13),
+                  if (!myBid.isBoosted) ...[
+                    OutlineButton(
+                      label: 'Boost bid (50 pts)',
+                      icon: Icons.trending_up_rounded,
+                      isLoading: _isBoosting,
+                      onPressed: () => _boostBid(myBid.id),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   OutlineButton(
                     label: 'Withdraw bid',
                     icon: Icons.undo_rounded,
@@ -1239,6 +1299,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!_job.isBoosted)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: OutlineButton(
+                  label: 'Boost this job (50 pts)',
+                  icon: Icons.trending_up_rounded,
+                  isLoading: _isBoostingJob,
+                  onPressed: _boostJob,
+                ),
+              ),
             if (bids.isEmpty) ...[
               const SectionHeading(title: 'Bids received', topPadding: 28),
               const EmptyView(
@@ -2408,6 +2478,40 @@ class _ContactAction extends StatelessWidget {
   }
 }
 
+/// Small marker on a boosted bid/job (migration 019's points-spend
+/// visibility perk) -- reuses the brand accent since it's a promotional
+/// signal, not a status like VerifiedBadge.
+class _BoostedChip extends StatelessWidget {
+  const _BoostedChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.trending_up_rounded, size: 10, color: AppColors.primary),
+          const SizedBox(width: 2),
+          Text(
+            'BOOSTED',
+            style: TextStyle(
+              fontSize: 8.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// One technician's offer on an open job.
 class _BidCard extends StatelessWidget {
   const _BidCard({
@@ -2484,6 +2588,10 @@ class _BidCard extends StatelessWidget {
                                 if (bid.technicianIsVerified) ...[
                                   const SizedBox(width: 5),
                                   const VerifiedBadge(size: 14),
+                                ],
+                                if (bid.isBoosted) ...[
+                                  const SizedBox(width: 5),
+                                  const _BoostedChip(),
                                 ],
                               ],
                             ),

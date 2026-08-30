@@ -43,7 +43,13 @@ class Job {
   /// or an already-assigned job -- only 'open' jobs are ever expired).
   final DateTime? expiresAt;
 
+  /// Set when the customer spends points to boost this job's visibility
+  /// (migration 019) -- boosted jobs sort first in the technician feed.
+  final DateTime? boostedAt;
+
   final DateTime createdAt;
+
+  bool get isBoosted => boostedAt != null;
 
   const Job({
     required this.id,
@@ -64,6 +70,7 @@ class Job {
     this.lat,
     this.lng,
     this.expiresAt,
+    this.boostedAt,
     required this.createdAt,
   });
 
@@ -99,6 +106,9 @@ class Job {
         expiresAt: map['expires_at'] == null
             ? null
             : DateTime.parse(map['expires_at'] as String),
+        boostedAt: map['boosted_at'] == null
+            ? null
+            : DateTime.parse(map['boosted_at'] as String),
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 
@@ -124,6 +134,7 @@ class Job {
         lat: lat,
         lng: lng,
         expiresAt: expiresAt,
+        boostedAt: boostedAt,
         createdAt: createdAt,
       );
 }
