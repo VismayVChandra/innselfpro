@@ -15,6 +15,7 @@ import '../../admin/admin_repository.dart';
 import '../../admin/screens/admin_screen.dart';
 import '../../auth/auth_repository.dart';
 import '../../safety/screens/blocked_users_screen.dart';
+import '../../support/screens/help_support_screen.dart';
 import '../../jobs/jobs_repository.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
@@ -323,6 +324,12 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                               label: 'Blocked users',
                               value: 'People you have blocked from messaging you',
                               onTap: () => _push(const BlockedUsersScreen()),
+                            ),
+                            SettingsRow(
+                              icon: Icons.help_outline_rounded,
+                              label: 'Help & Support',
+                              value: 'Contact us, FAQs, and our policies',
+                              onTap: () => _push(const HelpSupportScreen()),
                             ),
                             SettingsRow(
                               icon: isAvailable

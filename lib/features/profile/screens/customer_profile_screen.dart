@@ -10,6 +10,7 @@ import '../../auth/auth_repository.dart';
 import '../../jobs/screens/saved_addresses_screen.dart';
 import '../../points/screens/points_screen.dart';
 import '../../safety/screens/blocked_users_screen.dart';
+import '../../support/screens/help_support_screen.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../reviews/reviews_repository.dart';
@@ -202,6 +203,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     value: 'People you have blocked from messaging you',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
+                    ),
+                  ),
+                  SettingsRow(
+                    icon: Icons.help_outline_rounded,
+                    label: 'Help & Support',
+                    value: 'Contact us, FAQs, and our policies',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
                     ),
                   ),
                   FutureBuilder<bool>(
