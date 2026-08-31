@@ -9,10 +9,13 @@ import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../../models/admin_dispute.dart';
 import '../../../models/kyc_submission.dart';
+import '../../../models/support_message.dart';
 import '../../../models/user_report.dart';
+import '../../support/screens/support_chat_screen.dart';
+import '../../support/support_repository.dart';
 import '../admin_repository.dart';
 
-enum _AdminTab { kyc, disputes, reports }
+enum _AdminTab { kyc, disputes, reports, support }
 
 /// The hidden operations surface (wave 7.3): approve or reject KYC
 /// submissions and close disputes, so neither needs the Supabase console
@@ -27,9 +30,11 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   final _repository = AdminRepository();
+  final _supportRepository = SupportRepository();
   late Future<List<KycSubmission>> _kycFuture;
   late Future<List<AdminDispute>> _disputesFuture;
   late Future<List<UserReport>> _reportsFuture;
+  late Future<List<SupportThreadSummary>> _supportThreadsFuture;
   _AdminTab _tab = _AdminTab.kyc;
   String? _busyId;
 
@@ -43,11 +48,24 @@ class _AdminScreenState extends State<AdminScreen> {
     _kycFuture = _repository.fetchKycSubmissions(status: 'pending');
     _disputesFuture = _repository.fetchDisputes(status: 'open');
     _reportsFuture = _repository.fetchReports(status: 'open');
+    _supportThreadsFuture = _supportRepository.fetchThreads();
   }
 
   Future<void> _refresh() async {
     setState(_load);
-    await Future.wait([_kycFuture, _disputesFuture, _reportsFuture]);
+    await Future.wait([_kycFuture, _disputesFuture, _reportsFuture, _supportThreadsFuture]);
+  }
+
+  Future<void> _openSupportThread(SupportThreadSummary thread) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SupportChatScreen(
+          threadUserId: thread.userId,
+          threadUserName: thread.fullName,
+        ),
+      ),
+    );
+    if (mounted) setState(_load);
   }
 
   Future<void> _runAction(String id, Future<void> Function() action) async {
@@ -201,6 +219,12 @@ class _AdminScreenState extends State<AdminScreen> {
                         selected: _tab == _AdminTab.reports,
                         onTap: () => setState(() => _tab = _AdminTab.reports),
                       ),
+                      const SizedBox(width: 8),
+                      ChoicePill(
+                        label: 'Support',
+                        selected: _tab == _AdminTab.support,
+                        onTap: () => setState(() => _tab = _AdminTab.support),
+                      ),
                     ],
                   ),
                 ),
@@ -209,6 +233,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   _AdminTab.kyc => _buildKycList(),
                   _AdminTab.disputes => _buildDisputeList(),
                   _AdminTab.reports => _buildReportsList(),
+                  _AdminTab.support => _buildSupportList(),
                 },
               ],
             ),
@@ -336,6 +361,46 @@ class _AdminScreenState extends State<AdminScreen> {
                 report: report,
                 isBusy: _busyId == report.id,
                 onResolve: () => _resolveReport(report),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSupportList() {
+    return FutureBuilder<List<SupportThreadSummary>>(
+      future: _supportThreadsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorView(
+            message: 'Could not load support threads: ${snapshot.error}',
+            onRetry: _refresh,
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const LoadingView();
+        }
+        final threads = snapshot.data!;
+        if (threads.isEmpty) {
+          return const EmptyView(
+            icon: Icons.support_agent_outlined,
+            title: 'No support messages',
+            message: 'Nothing from users yet.',
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeading(
+              title: 'Support threads',
+              actionLabel: '${threads.length}',
+              topPadding: 18,
+            ),
+            for (final thread in threads)
+              _SupportThreadCard(
+                thread: thread,
+                onTap: () => _openSupportThread(thread),
               ),
           ],
         );
@@ -579,6 +644,78 @@ class _ReportCard extends StatelessWidget {
               onPressed: onResolve,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportThreadCard extends StatelessWidget {
+  const _SupportThreadCard({required this.thread, required this.onTap});
+
+  final SupportThreadSummary thread;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUnread = thread.unreadCount > 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: AppCard(
+        radius: 19,
+        padding: EdgeInsets.zero,
+        borderColor: hasUnread ? AppColors.primary : AppColors.border,
+        borderWidth: hasUnread ? 1.6 : 1,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(19),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                const SoftIcon(Icons.support_agent_outlined, size: 42, iconSize: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: Text(thread.fullName, style: AppText.cardTitleLarge)),
+                          Text(
+                            formatRelative(thread.lastMessageAt),
+                            style: AppText.bodyMuted.copyWith(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        thread.lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.bodyMuted.copyWith(
+                          fontSize: 11.5,
+                          fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
+                          color: hasUnread ? AppColors.foreground : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasUnread) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

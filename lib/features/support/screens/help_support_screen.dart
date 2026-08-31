@@ -5,14 +5,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/surfaces.dart';
-
-const _supportEmail = 'innself.vvc@gmail.com';
+import 'support_chat_screen.dart';
 
 /// General help/contact, distinct from the two things InnSelf already
 /// had: dispute flagging (tied to one specific job) and report/block
 /// (safety-specific). Neither covers "the app crashed" or "how do
 /// refunds work" -- this is that catch-all, reachable from Profile on
-/// both sides. Pure UI + external links; no backend of its own.
+/// both sides. Leads with an in-app support chat (immediate, no
+/// waiting on email) rather than a mailto: link -- the FAQs and policy
+/// links below still need no backend of their own.
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
 
@@ -43,40 +44,44 @@ class HelpSupportScreen extends StatelessWidget {
                 child: AppCard(
                   margin: EdgeInsets.zero,
                   radius: 19,
-                  padding: const EdgeInsets.all(17),
-                  child: Row(
-                    children: [
-                      const SoftIcon(
-                        Icons.mail_outline_rounded,
-                        background: AppColors.secondary,
-                        foreground: AppColors.secondaryForeground,
-                        size: 44,
-                        iconSize: 21,
-                      ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Email support', style: AppText.cardTitleLarge),
-                            const SizedBox(height: 3),
-                            Text(_supportEmail, style: AppText.bodyMuted),
-                          ],
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => _launchOrWarn(
-                          context,
-                          Uri(
-                            scheme: 'mailto',
-                            path: _supportEmail,
-                            query: 'subject=InnSelf support request',
+                  padding: EdgeInsets.zero,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(19),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(17),
+                      child: Row(
+                        children: [
+                          const SoftIcon(
+                            Icons.support_agent_outlined,
+                            background: AppColors.secondary,
+                            foreground: AppColors.secondaryForeground,
+                            size: 44,
+                            iconSize: 21,
                           ),
-                          'Could not open your email app',
-                        ),
-                        child: const Text('Email'),
+                          const SizedBox(width: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Chat with support', style: AppText.cardTitleLarge),
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Message our team directly, right here in the app',
+                                  style: AppText.bodyMuted,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.mutedForeground,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

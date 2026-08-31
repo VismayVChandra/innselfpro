@@ -100,6 +100,7 @@ function titleFor(type: string): string {
     case "job_expired": return "Your request expired";
     case "job_cancelled": return "A job was cancelled";
     case "job_rescheduled": return "A job was rescheduled";
+    case "support_message": return "InnSelf Support";
     default: return "InnSelf";
   }
 }

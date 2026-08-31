@@ -10,6 +10,7 @@ import '../../../models/app_notification.dart';
 import '../../jobs/jobs_repository.dart';
 import '../../jobs/screens/job_detail_screen.dart';
 import '../../profile/profile_repository.dart';
+import '../../support/screens/support_chat_screen.dart';
 import '../notifications_repository.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -32,6 +33,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // No manual refetch needed -- the realtime stream re-emits once
       // this update commits.
       await _repository.markAsRead(notification.id);
+    }
+    if (notification.type == 'support_message') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+      );
+      return;
     }
     if (notification.jobId == null) return;
     setState(() => _openingJobId = notification.id);
@@ -122,6 +130,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           icon: Icons.event_repeat_outlined,
           color: AppColors.warn,
           background: AppColors.warnSurface,
+        );
+      case 'support_message':
+        return (
+          icon: Icons.support_agent_outlined,
+          color: AppColors.accentForeground,
+          background: AppColors.accent,
         );
       default:
         return (
