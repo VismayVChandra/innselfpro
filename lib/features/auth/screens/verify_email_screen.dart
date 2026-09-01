@@ -84,7 +84,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TopBar(eyebrow: 'ALMOST THERE', title: 'Verify your email'),
+              TopBar(eyebrow: 'ALMOST THERE', title: 'Verify your email'),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: kTextGutter),
                 child: Text(
@@ -92,7 +92,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                   style: AppText.bodyMuted,
                 ),
               ),
-              const FieldLabel('Confirmation code', topPadding: 24),
+              FieldLabel('Confirmation code', topPadding: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: kGutter),
                 child: TextField(

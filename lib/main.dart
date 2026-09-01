@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'core/supabase_client.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/notifications/push_notifications_service.dart';
 
 Future<void> main() async {
@@ -10,6 +11,7 @@ Future<void> main() async {
   await initSupabase();
   await Firebase.initializeApp();
   await PushNotificationsService.instance.init(navigatorKey);
+  await ThemeController.instance.init();
 
   // supabase_flutter already watches for the innself://reset-callback
   // deep link (via its bundled app_links dependency) and exchanges it

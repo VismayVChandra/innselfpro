@@ -50,7 +50,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TopBar(eyebrow: 'SAFETY', title: 'Blocked users'),
+              TopBar(eyebrow: 'SAFETY', title: 'Blocked users'),
               FutureBuilder<List<Profile>>(
                 future: _future,
                 builder: (context, snapshot) {
@@ -58,11 +58,11 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                     return ErrorView(message: 'Could not load: ${snapshot.error}');
                   }
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const LoadingView();
+                    return LoadingView();
                   }
                   final blocked = snapshot.data!;
                   if (blocked.isEmpty) {
-                    return const EmptyView(
+                    return EmptyView(
                       icon: Icons.block_outlined,
                       title: 'Nobody blocked',
                       message: 'People you block can no longer message you.',

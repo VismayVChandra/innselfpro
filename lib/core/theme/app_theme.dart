@@ -3,14 +3,24 @@ import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 import 'app_text.dart';
+import 'theme_controller.dart';
 
 /// Wires the design tokens into Flutter's own widgets, so anything the
 /// app doesn't draw by hand -- text fields, dialogs, snack bars, the
 /// text selection handles -- still lands inside the design system.
+///
+/// Returns a fresh ThemeData on every call rather than two cached
+/// light/dark trees, since AppColors' own getters already resolve to
+/// the right palette for whichever mode ThemeController currently
+/// holds -- app.dart rebuilds this from scratch on every mode change,
+/// same as the rest of the app.
 abstract final class AppTheme {
   static ThemeData build() {
-    const scheme = ColorScheme(
-      brightness: Brightness.light,
+    final dark = ThemeController.instance.isDark;
+    final brightness = dark ? Brightness.dark : Brightness.light;
+
+    final scheme = ColorScheme(
+      brightness: brightness,
       primary: AppColors.primary,
       onPrimary: AppColors.primaryForeground,
       primaryContainer: AppColors.accent,
@@ -42,7 +52,7 @@ abstract final class AppTheme {
       colorScheme: scheme,
       fontFamily: 'Inter',
       scaffoldBackgroundColor: AppColors.background,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppColors.foreground,
@@ -50,13 +60,19 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: AppText.pageTitle,
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ),
+        systemOverlayStyle: dark
+            ? const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                statusBarBrightness: Brightness.dark,
+              )
+            : const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+                statusBarBrightness: Brightness.light,
+              ),
       ),
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: AppColors.border,
         thickness: 1,
         space: 1,
@@ -68,7 +84,7 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppColors.radius),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -80,28 +96,28 @@ abstract final class AppTheme {
         focusedBorder: inputBorder(AppColors.primary, 1.6),
         errorBorder: inputBorder(AppColors.destructive, 1),
         focusedErrorBorder: inputBorder(AppColors.destructive, 1.6),
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w500,
           color: AppColors.mutedForeground,
         ),
-        floatingLabelStyle: const TextStyle(
+        floatingLabelStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: AppColors.primary,
         ),
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w400,
           color: AppColors.mutedForeground,
         ),
-        errorStyle: const TextStyle(
+        errorStyle: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
           color: AppColors.destructive,
         ),
       ),
-      textSelectionTheme: const TextSelectionThemeData(
+      textSelectionTheme: TextSelectionThemeData(
         cursorColor: AppColors.primary,
         selectionColor: AppColors.accent,
         selectionHandleColor: AppColors.primary,
@@ -121,7 +137,7 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.foreground,
           minimumSize: const Size(0, 50),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -132,8 +148,8 @@ abstract final class AppTheme {
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
       ),
-      iconTheme: const IconThemeData(color: AppColors.foreground),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      iconTheme: IconThemeData(color: AppColors.foreground),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.primary,
         linearTrackColor: AppColors.muted,
         circularTrackColor: Colors.transparent,
@@ -141,7 +157,7 @@ abstract final class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.secondary,
         side: BorderSide.none,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: AppColors.secondaryForeground,
@@ -152,7 +168,7 @@ abstract final class AppTheme {
         backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           fontFamily: 'Inter',
           fontSize: 17,
           fontWeight: FontWeight.w700,
@@ -163,7 +179,7 @@ abstract final class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.foreground,
-        contentTextStyle: const TextStyle(
+        contentTextStyle: TextStyle(
           fontFamily: 'Inter',
           fontSize: 12.5,
           fontWeight: FontWeight.w500,
@@ -172,10 +188,10 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         insetPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
         ),
       ),
@@ -190,9 +206,9 @@ abstract final class AppTheme {
               ? AppColors.accent
               : AppColors.muted,
         ),
-        trackOutlineColor: const WidgetStatePropertyAll(AppColors.border),
+        trackOutlineColor: WidgetStatePropertyAll(AppColors.border),
       ),
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineMedium: AppText.display,
         headlineSmall: AppText.pageTitle,
         titleMedium: AppText.section,

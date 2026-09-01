@@ -195,7 +195,7 @@ class _AdminScreenState extends State<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(eyebrow: 'OPERATIONS', title: 'Admin'),
+                TopBar(eyebrow: 'OPERATIONS', title: 'Admin'),
                 SizedBox(
                   height: 42,
                   child: ListView(
@@ -254,11 +254,11 @@ class _AdminScreenState extends State<AdminScreen> {
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView();
+          return LoadingView();
         }
         final submissions = snapshot.data!;
         if (submissions.isEmpty) {
-          return const EmptyView(
+          return EmptyView(
             icon: Icons.verified_outlined,
             title: 'Nothing waiting',
             message: 'Every KYC submission has been reviewed.',
@@ -297,11 +297,11 @@ class _AdminScreenState extends State<AdminScreen> {
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView();
+          return LoadingView();
         }
         final disputes = snapshot.data!;
         if (disputes.isEmpty) {
-          return const EmptyView(
+          return EmptyView(
             icon: Icons.flag_outlined,
             title: 'No open disputes',
             message: 'Nothing needs your attention right now.',
@@ -338,11 +338,11 @@ class _AdminScreenState extends State<AdminScreen> {
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView();
+          return LoadingView();
         }
         final reports = snapshot.data!;
         if (reports.isEmpty) {
-          return const EmptyView(
+          return EmptyView(
             icon: Icons.shield_outlined,
             title: 'No open reports',
             message: 'Nothing needs your attention right now.',
@@ -379,11 +379,11 @@ class _AdminScreenState extends State<AdminScreen> {
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView();
+          return LoadingView();
         }
         final threads = snapshot.data!;
         if (threads.isEmpty) {
-          return const EmptyView(
+          return EmptyView(
             icon: Icons.support_agent_outlined,
             title: 'No support messages',
             message: 'Nothing from users yet.',
@@ -436,7 +436,7 @@ class _KycCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const SoftIcon(Icons.badge_outlined, size: 42, iconSize: 20),
+                SoftIcon(Icons.badge_outlined, size: 42, iconSize: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -528,7 +528,7 @@ class _DisputeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const SoftIcon(
+                SoftIcon(
                   Icons.flag_outlined,
                   background: Color(0x1AD94B48),
                   foreground: AppColors.destructive,
@@ -602,7 +602,7 @@ class _ReportCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const SoftIcon(
+                SoftIcon(
                   Icons.shield_outlined,
                   background: Color(0x1AD94B48),
                   foreground: AppColors.destructive,
@@ -673,7 +673,7 @@ class _SupportThreadCard extends StatelessWidget {
             padding: const EdgeInsets.all(15),
             child: Row(
               children: [
-                const SoftIcon(Icons.support_agent_outlined, size: 42, iconSize: 20),
+                SoftIcon(Icons.support_agent_outlined, size: 42, iconSize: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -707,7 +707,7 @@ class _SupportThreadCard extends StatelessWidget {
                   Container(
                     width: 9,
                     height: 9,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.primary,
                     ),

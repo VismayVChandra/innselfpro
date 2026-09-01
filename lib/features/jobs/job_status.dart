@@ -6,7 +6,7 @@ import '../../core/theme/app_colors.dart';
 /// stores four states; the UI wants a friendly label per audience, a
 /// progress fraction for the tracker bars, and a colour.
 class JobStatusInfo {
-  const JobStatusInfo({
+  JobStatusInfo({
     required this.customerLabel,
     required this.technicianLabel,
     required this.progress,
@@ -28,69 +28,69 @@ class JobStatusInfo {
   /// Index into the five-step timeline on the job screen.
   final int step;
 
-  static const _open = JobStatusInfo(
-    customerLabel: 'Collecting bids',
-    technicianLabel: 'Open for bids',
-    progress: 15,
-    color: AppColors.accentForeground,
-    step: 0,
-  );
+  static JobStatusInfo get _open => JobStatusInfo(
+        customerLabel: 'Collecting bids',
+        technicianLabel: 'Open for bids',
+        progress: 15,
+        color: AppColors.accentForeground,
+        step: 0,
+      );
 
-  static const _bidAccepted = JobStatusInfo(
-    customerLabel: 'Technician assigned',
-    technicianLabel: 'You won this job',
-    progress: 35,
-    color: AppColors.warn,
-    step: 1,
-  );
+  static JobStatusInfo get _bidAccepted => JobStatusInfo(
+        customerLabel: 'Technician assigned',
+        technicianLabel: 'You won this job',
+        progress: 35,
+        color: AppColors.warn,
+        step: 1,
+      );
 
-  static const _enRoute = JobStatusInfo(
-    customerLabel: 'On the way',
-    technicianLabel: 'You are on the way',
-    progress: 55,
-    color: AppColors.warn,
-    step: 2,
-  );
+  static JobStatusInfo get _enRoute => JobStatusInfo(
+        customerLabel: 'On the way',
+        technicianLabel: 'You are on the way',
+        progress: 55,
+        color: AppColors.warn,
+        step: 2,
+      );
 
-  static const _inProgress = JobStatusInfo(
-    customerLabel: 'Work in progress',
-    technicianLabel: 'Work in progress',
-    progress: 75,
-    color: AppColors.primary,
-    step: 3,
-  );
+  static JobStatusInfo get _inProgress => JobStatusInfo(
+        customerLabel: 'Work in progress',
+        technicianLabel: 'Work in progress',
+        progress: 75,
+        color: AppColors.primary,
+        step: 3,
+      );
 
-  static const _completed = JobStatusInfo(
-    customerLabel: 'Completed',
-    technicianLabel: 'Completed',
-    progress: 100,
-    color: AppColors.success,
-    step: 4,
-  );
+  static JobStatusInfo get _completed => JobStatusInfo(
+        customerLabel: 'Completed',
+        technicianLabel: 'Completed',
+        progress: 100,
+        color: AppColors.success,
+        step: 4,
+      );
 
-  static const _cancelled = JobStatusInfo(
-    customerLabel: 'Cancelled',
-    technicianLabel: 'Cancelled',
-    progress: 0,
-    color: AppColors.mutedForeground,
-    step: 0,
-  );
+  static JobStatusInfo get _cancelled => JobStatusInfo(
+        customerLabel: 'Cancelled',
+        technicianLabel: 'Cancelled',
+        progress: 0,
+        color: AppColors.mutedForeground,
+        step: 0,
+      );
 
-  static const _expired = JobStatusInfo(
-    customerLabel: 'Expired -- no bids',
-    technicianLabel: 'Expired',
-    progress: 0,
-    color: AppColors.mutedForeground,
-    step: 0,
-  );
+  static JobStatusInfo get _expired => JobStatusInfo(
+        customerLabel: 'Expired -- no bids',
+        technicianLabel: 'Expired',
+        progress: 0,
+        color: AppColors.mutedForeground,
+        step: 0,
+      );
 
-  static const _unknown = JobStatusInfo(
-    customerLabel: 'Unknown',
-    technicianLabel: 'Unknown',
-    progress: 0,
-    color: AppColors.mutedForeground,
-    step: 0,
-  );
+  static JobStatusInfo get _unknown => JobStatusInfo(
+        customerLabel: 'Unknown',
+        technicianLabel: 'Unknown',
+        progress: 0,
+        color: AppColors.mutedForeground,
+        step: 0,
+      );
 
   static JobStatusInfo of(String status) => switch (status) {
         'open' => _open,

@@ -50,22 +50,22 @@ class _TechnicianWalletScreenState extends State<TechnicianWalletScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const TopBar(eyebrow: 'EARNINGS', title: 'Wallet'),
+                    TopBar(eyebrow: 'EARNINGS', title: 'Wallet'),
                     if (snapshot.hasError)
                       ErrorView(
                         message: 'Could not load earnings: ${snapshot.error}',
                         onRetry: _refresh,
                       )
                     else if (snapshot.connectionState != ConnectionState.done)
-                      const LoadingView()
+                      LoadingView()
                     else ...[
                       _BalancePanel(
                         total: total,
                         jobCount: payments.length,
                       ),
-                      const SectionHeading(title: 'Paid jobs'),
+                      SectionHeading(title: 'Paid jobs'),
                       if (payments.isEmpty)
-                        const EmptyView(
+                        EmptyView(
                           icon: Icons.receipt_long_outlined,
                           title: 'No paid jobs yet',
                           message:
@@ -100,7 +100,7 @@ class _BalancePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'TOTAL EARNED',
             style: TextStyle(
               color: AppColors.onPanelKicker,
@@ -124,7 +124,7 @@ class _BalancePanel extends StatelessWidget {
             jobCount == 0
                 ? 'No payments have landed yet.'
                 : 'Across $jobCount paid job${jobCount == 1 ? '' : 's'}.',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.onPanelMuted,
               fontSize: 11.5,
               height: 1.5,
@@ -169,7 +169,7 @@ class _PaymentRow extends StatelessWidget {
                             color: AppColors.muted,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
+                          child: Text(
                             'CASH',
                             style: TextStyle(
                               fontSize: 8.5,

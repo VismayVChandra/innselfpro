@@ -59,7 +59,7 @@ class _ProfileGateState extends State<ProfileGate> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: LoadingView()));
+      return Scaffold(body: Center(child: LoadingView()));
     }
     if (_error != null) {
       return Scaffold(

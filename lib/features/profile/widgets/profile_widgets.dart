@@ -38,7 +38,7 @@ class ProfileHeaderCard extends StatelessWidget {
             ),
             child: Text(
               initialsOf(name),
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.panelStart,
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
@@ -65,7 +65,7 @@ class ProfileHeaderCard extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.onPanelFaint,
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
@@ -83,7 +83,7 @@ class ProfileHeaderCard extends StatelessWidget {
             ),
             child: Text(
               roleLabel.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.onPanelKicker,
                 fontSize: 8.5,
                 fontWeight: FontWeight.w700,
@@ -258,9 +258,9 @@ class SettingsRow extends StatelessWidget {
     required this.value,
     this.onTap,
     this.trailing,
-    this.iconColor = AppColors.accentForeground,
-    this.iconBackground = AppColors.secondary,
-    this.labelColor = AppColors.foreground,
+    this.iconColor,
+    this.iconBackground,
+    this.labelColor,
   });
 
   final IconData icon;
@@ -268,9 +268,12 @@ class SettingsRow extends StatelessWidget {
   final String value;
   final VoidCallback? onTap;
   final Widget? trailing;
-  final Color iconColor;
-  final Color iconBackground;
-  final Color labelColor;
+
+  /// Null means AppColors.accentForeground/secondary/foreground -- none
+  /// of these can be default parameter values any more.
+  final Color? iconColor;
+  final Color? iconBackground;
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +289,8 @@ class SettingsRow extends StatelessWidget {
               icon,
               size: 39,
               iconSize: 19,
-              background: iconBackground,
-              foreground: iconColor,
+              background: iconBackground ?? AppColors.secondary,
+              foreground: iconColor ?? AppColors.accentForeground,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -298,7 +301,7 @@ class SettingsRow extends StatelessWidget {
                     label,
                     style: AppText.cardTitle.copyWith(
                       fontSize: 12.5,
-                      color: labelColor,
+                      color: labelColor ?? AppColors.foreground,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -313,7 +316,7 @@ class SettingsRow extends StatelessWidget {
             if (trailing != null)
               trailing!
             else if (onTap != null)
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 18,
                 color: AppColors.mutedForeground,

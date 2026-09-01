@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../../../core/theme/appearance_picker.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../core/widgets/states.dart';
 import '../../../core/widgets/surfaces.dart';
@@ -201,7 +203,7 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenHeader(eyebrow: 'ACCOUNT', title: 'Profile'),
+              ScreenHeader(eyebrow: 'ACCOUNT', title: 'Profile'),
               ProfileHeaderCard(
                 name: profile.fullName,
                 subtitle: profile.phone,
@@ -217,7 +219,7 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                     );
                   }
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const LoadingView(height: 240);
+                    return LoadingView(height: 240);
                   }
                   final summary = snapshot.data!;
                   final rating = summary.averageRating;
@@ -252,7 +254,7 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                           ],
                         ),
                       ),
-                      const SectionHeading(title: 'Your work'),
+                      SectionHeading(title: 'Your work'),
                       Padding(
                         padding:
                             const EdgeInsets.symmetric(horizontal: kGutter),
@@ -318,6 +320,15 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
                                       true
                                   ? summary.details!.serviceArea!
                                   : 'Not set',
+                            ),
+                            ListenableBuilder(
+                              listenable: ThemeController.instance,
+                              builder: (context, _) => SettingsRow(
+                                icon: Icons.brightness_6_outlined,
+                                label: 'Appearance',
+                                value: appearanceLabel(ThemeController.instance.mode),
+                                onTap: () => showAppearancePicker(context),
+                              ),
                             ),
                             SettingsRow(
                               icon: Icons.block_outlined,

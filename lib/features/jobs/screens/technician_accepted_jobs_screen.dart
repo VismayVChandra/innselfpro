@@ -78,7 +78,7 @@ class _TechnicianAcceptedJobsScreenState
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const ScreenHeader(
+                  ScreenHeader(
                     eyebrow: 'YOUR WORK',
                     title: 'My jobs',
                     action: NotificationBell(),
@@ -89,12 +89,12 @@ class _TechnicianAcceptedJobsScreenState
                       onRetry: _refresh,
                     )
                   else if (snapshot.connectionState != ConnectionState.done)
-                    const LoadingView()
+                    LoadingView()
                   else ...[
                     _WonSummary(total: jobs.length, live: live),
-                    const SectionHeading(title: 'All accepted jobs'),
+                    SectionHeading(title: 'All accepted jobs'),
                     if (jobs.isEmpty)
-                      const EmptyView(
+                      EmptyView(
                         icon: Icons.work_outline_rounded,
                         title: 'No jobs won yet',
                         message:
@@ -135,7 +135,7 @@ class _WonSummary extends StatelessWidget {
         children: [
           Text(
             '$total',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 35,
               fontWeight: FontWeight.w700,
               color: AppColors.accentForeground,

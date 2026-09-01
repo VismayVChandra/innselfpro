@@ -68,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             const SizedBox(height: 10),
-            const TopBar(eyebrow: 'THIS JOB', title: 'Messages'),
+            TopBar(eyebrow: 'THIS JOB', title: 'Messages'),
             Expanded(
               child: StreamBuilder<List<Message>>(
                 stream: _messagesStream,
@@ -79,11 +79,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     );
                   }
                   if (!snapshot.hasData) {
-                    return const LoadingView();
+                    return LoadingView();
                   }
                   final messages = snapshot.data!;
                   if (messages.isEmpty) {
-                    return const EmptyView(
+                    return EmptyView(
                       icon: Icons.chat_bubble_outline_rounded,
                       title: 'No messages yet',
                       message: 'Say hello -- questions about the job go here.',
@@ -209,14 +209,14 @@ class _Composer extends StatelessWidget {
                 width: 46,
                 height: 46,
                 child: isSending
-                    ? const Padding(
-                        padding: EdgeInsets.all(13),
+                    ? Padding(
+                        padding: const EdgeInsets.all(13),
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: AppColors.primaryForeground,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.send_rounded,
                         size: 19,
                         color: AppColors.primaryForeground,

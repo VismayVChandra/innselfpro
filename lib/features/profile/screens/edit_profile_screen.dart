@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/format.dart';
 import '../../../core/location_service.dart';
 import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/widgets/buttons.dart';
@@ -181,8 +182,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(eyebrow: 'ACCOUNT', title: 'Edit profile'),
-                const FieldLabel('Full name', topPadding: 12),
+                TopBar(eyebrow: 'ACCOUNT', title: 'Edit profile'),
+                FieldLabel('Full name', topPadding: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -195,7 +196,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                 ),
-                const FieldLabel('Phone number', topPadding: 20),
+                FieldLabel('Phone number', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -204,11 +205,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.call_outlined, size: 20),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    validator: (v) => normalisePhone(v ?? '') == null
+                        ? 'Enter a valid 10-digit phone number'
+                        : null,
                   ),
                 ),
-                const FieldLabel('Address', topPadding: 20),
+                FieldLabel('Address', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -232,10 +234,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                     )
                   else if (_isLoadingDetails)
-                    const LoadingView(height: 100)
+                    LoadingView(height: 100)
                   else ...[
-                    const SectionHeading(title: 'Your work'),
-                    const FieldLabel('Skills'),
+                    SectionHeading(title: 'Your work'),
+                    FieldLabel('Skills'),
                     SkillsSelector(
                       categories: _categories,
                       selectedIds: _selectedSkillCategoryIds,
@@ -245,7 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                       }),
                     ),
-                    const FieldLabel('Service area', topPadding: 20),
+                    FieldLabel('Service area', topPadding: 20),
                     ServiceRadiusPicker(
                       hasLocation: _baseLat != null && _baseLng != null,
                       isLocating: _isLocating,

@@ -53,7 +53,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TopBar(eyebrow: 'ACCOUNT', title: 'Reset your password'),
+              TopBar(eyebrow: 'ACCOUNT', title: 'Reset your password'),
               if (_sent)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
@@ -79,7 +79,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           style: AppText.bodyMuted,
                         ),
                       ),
-                      const FieldLabel('Email address', topPadding: 20),
+                      FieldLabel('Email address', topPadding: 20),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: kGutter),
                         child: TextFormField(
@@ -87,7 +87,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
                           style: AppText.body.copyWith(fontSize: 13),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'you@example.com',
                             prefixIcon: Icon(
                               Icons.mail_outline_rounded,

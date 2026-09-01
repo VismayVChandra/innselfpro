@@ -269,7 +269,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(
+                TopBar(
                   eyebrow: 'NEW REQUEST',
                   title: "Tell us what's wrong",
                 ),
@@ -284,7 +284,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.person_pin_circle_outlined,
                             size: 18,
                             color: AppColors.accentForeground,
@@ -305,7 +305,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     ),
                   ),
                 _ProgressBar(completed: _completedSteps),
-                const FieldLabel('What do you need help with?'),
+                FieldLabel('What do you need help with?'),
                 FutureBuilder<List<Category>>(
                   future: _categoriesFuture,
                   builder: (context, snapshot) {
@@ -316,7 +316,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       );
                     }
                     if (snapshot.connectionState != ConnectionState.done) {
-                      return const LoadingView(height: 140);
+                      return LoadingView(height: 140);
                     }
                     return CategoryGrid(
                       categories: snapshot.data!.where((c) => c.isTopLevel).toList(),
@@ -352,7 +352,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   const SizedBox(height: 12),
                   PriceGuidanceHint(future: _priceGuidanceFuture!),
                 ],
-                const FieldLabel('Describe the problem', topPadding: 27),
+                FieldLabel('Describe the problem', topPadding: 27),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -393,7 +393,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     style: AppText.bodyMuted,
                   ),
                 ),
-                const FieldLabel('Where should they come?', topPadding: 23),
+                FieldLabel('Where should they come?', topPadding: 23),
                 FutureBuilder<List<CustomerAddress>>(
                   future: _addressesFuture,
                   builder: (context, snapshot) {
@@ -433,7 +433,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     controller: _locationController,
                     textCapitalization: TextCapitalization.words,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'e.g. Koramangala, Bangalore',
                       prefixIcon: Icon(
                         Icons.location_on_outlined,
@@ -468,7 +468,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   isLoading: _isLocating,
                   onPressed: _useCurrentLocation,
                 ),
-                const FieldLabel('When do you need this done?', topPadding: 23),
+                FieldLabel('When do you need this done?', topPadding: 23),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: Row(

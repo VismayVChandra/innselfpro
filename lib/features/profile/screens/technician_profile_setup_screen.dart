@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/format.dart';
 import '../../../core/location_service.dart';
 import '../../../core/widgets/location_disclosure.dart';
 import '../../../core/theme/app_colors.dart';
@@ -170,6 +171,7 @@ class _TechnicianProfileSetupScreenState
     TextInputType? keyboardType,
     int maxLines = 1,
     TextCapitalization capitalization = TextCapitalization.sentences,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kGutter),
@@ -185,7 +187,8 @@ class _TechnicianProfileSetupScreenState
               ? null
               : Icon(icon, size: 20, color: AppColors.mutedForeground),
         ),
-        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+        validator: validator ??
+            (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
@@ -201,30 +204,33 @@ class _TechnicianProfileSetupScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(eyebrow: 'TECHNICIAN', title: 'Your details'),
-                const FieldLabel('Full name', topPadding: 12),
+                TopBar(eyebrow: 'TECHNICIAN', title: 'Your details'),
+                FieldLabel('Full name', topPadding: 12),
                 _field(
                   controller: _nameController,
                   hint: 'As it appears on your ID',
                   icon: Icons.person_outline_rounded,
                   capitalization: TextCapitalization.words,
                 ),
-                const FieldLabel('Phone number', topPadding: 20),
+                FieldLabel('Phone number', topPadding: 20),
                 _field(
                   controller: _phoneController,
                   hint: 'So customers can reach you',
                   icon: Icons.call_outlined,
                   keyboardType: TextInputType.phone,
+                  validator: (v) => normalisePhone(v ?? '') == null
+                      ? 'Enter a valid 10-digit phone number'
+                      : null,
                 ),
-                const FieldLabel('Address', topPadding: 20),
+                FieldLabel('Address', topPadding: 20),
                 _field(
                   controller: _addressController,
                   hint: 'Flat, street, area, city',
                   maxLines: 3,
                   capitalization: TextCapitalization.words,
                 ),
-                const SectionHeading(title: 'Your work'),
-                const FieldLabel('Skills'),
+                SectionHeading(title: 'Your work'),
+                FieldLabel('Skills'),
                 FutureBuilder<List<Category>>(
                   future: _categoriesFuture,
                   builder: (context, snapshot) {
@@ -234,7 +240,7 @@ class _TechnicianProfileSetupScreenState
                       );
                     }
                     if (snapshot.connectionState != ConnectionState.done) {
-                      return const LoadingView(height: 60);
+                      return LoadingView(height: 60);
                     }
                     return SkillsSelector(
                       categories: snapshot.data!,
@@ -247,7 +253,7 @@ class _TechnicianProfileSetupScreenState
                     );
                   },
                 ),
-                const FieldLabel('Service area', topPadding: 20),
+                FieldLabel('Service area', topPadding: 20),
                 ServiceRadiusPicker(
                   hasLocation: _baseLat != null && _baseLng != null,
                   isLocating: _isLocating,
@@ -256,8 +262,8 @@ class _TechnicianProfileSetupScreenState
                   onSetLocation: _setLocation,
                   onRadiusChanged: (value) => setState(() => _radiusKm = value.round()),
                 ),
-                const SectionHeading(title: 'Identity check'),
-                const FieldLabel('Which ID are you uploading?'),
+                SectionHeading(title: 'Identity check'),
+                FieldLabel('Which ID are you uploading?'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: Wrap(
@@ -273,7 +279,7 @@ class _TechnicianProfileSetupScreenState
                     ],
                   ),
                 ),
-                const FieldLabel('ID number', topPadding: 16),
+                FieldLabel('ID number', topPadding: 16),
                 _field(
                   controller: _idNumberController,
                   hint: 'As printed on the document',
@@ -333,7 +339,7 @@ class _KycUpload extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         child: Row(
           children: [
-            const SoftIcon(Icons.upload_file_outlined, size: 39, iconSize: 19),
+            SoftIcon(Icons.upload_file_outlined, size: 39, iconSize: 19),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -348,7 +354,7 @@ class _KycUpload extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 18,
               color: AppColors.mutedForeground,

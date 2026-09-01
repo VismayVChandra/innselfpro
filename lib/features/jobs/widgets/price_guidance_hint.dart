@@ -32,7 +32,7 @@ class PriceGuidanceHint extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.insights_outlined,
                   size: 17,
                   color: AppColors.accentForeground,

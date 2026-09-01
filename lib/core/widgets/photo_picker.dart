@@ -51,7 +51,7 @@ class JobPhotoPicker extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 18,
               color: AppColors.mutedForeground,

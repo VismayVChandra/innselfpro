@@ -38,7 +38,7 @@ class HelpSupportScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TopBar(eyebrow: 'HELP', title: 'Support'),
+              TopBar(eyebrow: 'HELP', title: 'Support'),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: kGutter),
                 child: AppCard(
@@ -54,7 +54,7 @@ class HelpSupportScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(17),
                       child: Row(
                         children: [
-                          const SoftIcon(
+                          SoftIcon(
                             Icons.support_agent_outlined,
                             background: AppColors.secondary,
                             foreground: AppColors.secondaryForeground,
@@ -75,7 +75,7 @@ class HelpSupportScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.chevron_right_rounded,
                             color: AppColors.mutedForeground,
                           ),
@@ -85,7 +85,7 @@ class HelpSupportScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SectionHeading(title: 'Common questions'),
+              SectionHeading(title: 'Common questions'),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: kGutter),
                 child: Column(
@@ -127,7 +127,7 @@ class HelpSupportScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SectionHeading(title: 'Policies'),
+              SectionHeading(title: 'Policies'),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: kGutter),
                 child: Column(
@@ -226,7 +226,7 @@ class _LinkRow extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(child: Text(label, style: AppText.cardTitle.copyWith(fontSize: 12.5))),
-                const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.mutedForeground),
+                Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.mutedForeground),
               ],
             ),
           ),

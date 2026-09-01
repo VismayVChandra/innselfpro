@@ -95,7 +95,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                     );
                   }
                   if (!snapshot.hasData) {
-                    return const LoadingView();
+                    return LoadingView();
                   }
                   final messages = snapshot.data!;
                   if (messages.isEmpty) {
@@ -227,14 +227,14 @@ class _Composer extends StatelessWidget {
                 width: 46,
                 height: 46,
                 child: isSending
-                    ? const Padding(
-                        padding: EdgeInsets.all(13),
+                    ? Padding(
+                        padding: const EdgeInsets.all(13),
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: AppColors.primaryForeground,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.send_rounded,
                         size: 19,
                         color: AppColors.primaryForeground,

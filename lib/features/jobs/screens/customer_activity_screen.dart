@@ -101,7 +101,7 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const ScreenHeader(
+                  ScreenHeader(
                     eyebrow: 'YOUR INNSELF',
                     title: 'Activity',
                     action: NotificationBell(),
@@ -113,16 +113,16 @@ class _CustomerActivityScreenState extends State<CustomerActivityScreen>
                       onRetry: _refresh,
                     )
                   else if (snapshot.connectionState != ConnectionState.done)
-                    const LoadingView()
+                    LoadingView()
                   else ...[
                     if (expiredJobs.isNotEmpty) ...[
-                      const SectionHeading(title: 'Expired -- no bids', topPadding: 30),
+                      SectionHeading(title: 'Expired -- no bids', topPadding: 30),
                       for (final job in expiredJobs)
                         _ExpiredJobCard(job: job, onRepost: () => _repost(job)),
                     ],
-                    const SectionHeading(title: 'All requests', topPadding: 30),
+                    SectionHeading(title: 'All requests', topPadding: 30),
                     if (jobs.isEmpty)
-                      const EmptyView(
+                      EmptyView(
                         icon: Icons.inbox_outlined,
                         title: 'No requests yet',
                         message:
@@ -164,7 +164,7 @@ class _ExpiredJobCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            const SoftIcon(
+            SoftIcon(
               Icons.hourglass_disabled_outlined,
               background: AppColors.muted,
               foreground: AppColors.mutedForeground,
@@ -212,7 +212,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(
             '$count',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 35,
               fontWeight: FontWeight.w700,
               color: AppColors.accentForeground,

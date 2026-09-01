@@ -15,7 +15,7 @@ class AppCard extends StatelessWidget {
     this.radius = 20,
     this.borderColor,
     this.borderWidth = 1,
-    this.color = AppColors.card,
+    this.color,
   });
 
   final Widget child;
@@ -25,7 +25,10 @@ class AppCard extends StatelessWidget {
   final double radius;
   final Color? borderColor;
   final double borderWidth;
-  final Color color;
+
+  /// Null means AppColors.card -- can't be a default parameter value
+  /// any more since that's no longer a compile-time constant.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +36,7 @@ class AppCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: Material(
-        color: color,
+        color: color ?? AppColors.card,
         borderRadius: borderRadius,
         child: InkWell(
           onTap: onTap,
@@ -62,8 +65,8 @@ class SoftIcon extends StatelessWidget {
   const SoftIcon(
     this.icon, {
     super.key,
-    this.background = AppColors.secondary,
-    this.foreground = AppColors.accentForeground,
+    this.background,
+    this.foreground,
     this.size = 40,
     this.iconSize = 20,
   });
@@ -85,8 +88,11 @@ class SoftIcon extends StatelessWidget {
       );
 
   final IconData icon;
-  final Color background;
-  final Color foreground;
+
+  /// Null means AppColors.secondary/accentForeground -- see [SoftIcon]'s
+  /// constructor for why these can't be default parameter values.
+  final Color? background;
+  final Color? foreground;
   final double size;
   final double iconSize;
 
@@ -97,10 +103,10 @@ class SoftIcon extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: background,
+        color: background ?? AppColors.secondary,
         borderRadius: BorderRadius.circular(size * 0.34),
       ),
-      child: Icon(icon, size: iconSize, color: foreground),
+      child: Icon(icon, size: iconSize, color: foreground ?? AppColors.accentForeground),
     );
   }
 }
@@ -141,7 +147,7 @@ class DarkPanel extends StatelessWidget {
             color: solidColor,
             gradient: solidColor != null
                 ? null
-                : const LinearGradient(
+                : LinearGradient(
                     colors: [AppColors.panelStart, AppColors.panelEnd],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -218,7 +224,7 @@ class EmptyStateCard extends StatelessWidget {
                   ),
                 ),
                 if (onTap != null)
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
                     size: 19,
                     color: AppColors.mutedForeground,
@@ -289,7 +295,7 @@ class StatTile extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: AppColors.foreground,
@@ -298,7 +304,7 @@ class StatTile extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w400,
                 color: AppColors.mutedForeground,

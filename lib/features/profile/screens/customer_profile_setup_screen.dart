@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/format.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/buttons.dart';
@@ -69,15 +70,15 @@ class _CustomerProfileSetupScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(eyebrow: 'CUSTOMER', title: 'Your details'),
-                const FieldLabel('Full name', topPadding: 12),
+                TopBar(eyebrow: 'CUSTOMER', title: 'Your details'),
+                FieldLabel('Full name', topPadding: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'As your technician should address you',
                       prefixIcon: Icon(
                         Icons.person_outline_rounded,
@@ -89,14 +90,14 @@ class _CustomerProfileSetupScreenState
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                 ),
-                const FieldLabel('Phone number', topPadding: 20),
+                FieldLabel('Phone number', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'So your pro can reach you',
                       prefixIcon: Icon(
                         Icons.call_outlined,
@@ -104,11 +105,12 @@ class _CustomerProfileSetupScreenState
                         color: AppColors.mutedForeground,
                       ),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    validator: (v) => normalisePhone(v ?? '') == null
+                        ? 'Enter a valid 10-digit phone number'
+                        : null,
                   ),
                 ),
-                const FieldLabel('Address', topPadding: 20),
+                FieldLabel('Address', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(

@@ -38,13 +38,17 @@ class AuthGate extends StatelessWidget {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.of(context).popUntil((route) => route.isFirst);
           });
-          return const ResetPasswordScreen();
+          return ResetPasswordScreen();
         }
         final session = supabase.auth.currentSession;
         if (session != null) {
-          return const ProfileGate();
+          // Not `const`: a const instance would be `identical()` across
+          // rebuilds, and Flutter skips rebuilding an identical child --
+          // which would stop InnselfApp's root-level theme rebuild (see
+          // app.dart) from ever reaching the signed-in app underneath.
+          return ProfileGate();
         }
-        return const LoginScreen();
+        return LoginScreen();
       },
     );
   }

@@ -79,7 +79,7 @@ class JobListCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 19,
               color: AppColors.mutedForeground,
@@ -123,7 +123,7 @@ class JobFeedCard extends StatelessWidget {
                 children: [
                   Text(
                     job.categoryName.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.6,
@@ -140,7 +140,7 @@ class JobFeedCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.location_on_outlined,
                         size: 12,
                         color: AppColors.mutedForeground,
@@ -160,7 +160,7 @@ class JobFeedCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.event_outlined,
                           size: 12,
                           color: AppColors.primary,
@@ -185,7 +185,7 @@ class JobFeedCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.near_me_outlined,
                           size: 12,
                           color: AppColors.success,
@@ -214,7 +214,7 @@ class JobFeedCard extends StatelessWidget {
                   style: AppText.bodyMuted.copyWith(fontSize: 9.5),
                 ),
                 const SizedBox(height: 12),
-                const Icon(
+                Icon(
                   Icons.north_east,
                   size: 16,
                   color: AppColors.mutedForeground,

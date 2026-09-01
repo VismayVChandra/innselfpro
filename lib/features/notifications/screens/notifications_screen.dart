@@ -158,7 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const TopBar(
+                  TopBar(
                     eyebrow: 'YOUR INNSELF',
                     title: 'Notifications',
                   ),
@@ -168,9 +168,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           'Could not load notifications: ${snapshot.error}',
                     )
                   else if (!snapshot.hasData)
-                    const LoadingView()
+                    LoadingView()
                   else if (snapshot.data!.isEmpty)
-                    const EmptyView(
+                    EmptyView(
                       icon: Icons.notifications_none_rounded,
                       title: 'Nothing yet',
                       message:
@@ -264,7 +264,7 @@ class _NotificationRow extends StatelessWidget {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(top: 6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.primary,
                 ),

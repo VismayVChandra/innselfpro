@@ -69,8 +69,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(eyebrow: 'ACCOUNT', title: 'Set a new password'),
-                const FieldLabel('New password', topPadding: 12),
+                TopBar(eyebrow: 'ACCOUNT', title: 'Set a new password'),
+                FieldLabel('New password', topPadding: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -79,7 +79,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     style: AppText.body.copyWith(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'At least 6 characters',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outline_rounded,
                         size: 20,
                         color: AppColors.mutedForeground,
@@ -97,14 +97,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
                   ),
                 ),
-                const FieldLabel('Confirm password', topPadding: 20),
+                FieldLabel('Confirm password', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
                     controller: _confirmController,
                     obscureText: _obscure,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Type it again',
                       prefixIcon: Icon(
                         Icons.lock_outline_rounded,

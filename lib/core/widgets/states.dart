@@ -46,7 +46,7 @@ class ErrorView extends StatelessWidget {
               color: AppColors.destructive.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.error_outline,
               color: AppColors.destructive,
               size: 22,

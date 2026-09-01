@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../../../core/theme/appearance_picker.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/layout.dart';
 import '../../../models/profile.dart';
 import '../../admin/admin_repository.dart';
@@ -131,13 +133,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const ScreenHeader(eyebrow: 'ACCOUNT', title: 'Profile'),
+            ScreenHeader(eyebrow: 'ACCOUNT', title: 'Profile'),
             ProfileHeaderCard(
               name: profile.fullName,
               subtitle: profile.phone,
               roleLabel: 'Customer',
             ),
-            const SectionHeading(title: 'Your details'),
+            SectionHeading(title: 'Your details'),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: kGutter),
               child: Column(
@@ -190,6 +192,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     value: '${profile.rewardPoints} pts  ·  boost jobs to get more bids',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const PointsScreen()),
+                    ),
+                  ),
+                  ListenableBuilder(
+                    listenable: ThemeController.instance,
+                    builder: (context, _) => SettingsRow(
+                      icon: Icons.brightness_6_outlined,
+                      label: 'Appearance',
+                      value: appearanceLabel(ThemeController.instance.mode),
+                      onTap: () => showAppearancePicker(context),
                     ),
                   ),
                   SettingsRow(

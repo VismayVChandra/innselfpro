@@ -72,7 +72,7 @@ class _RatingsScreenState extends State<RatingsScreen> {
                         onRetry: _refresh,
                       )
                     else if (snapshot.connectionState != ConnectionState.done)
-                      const LoadingView()
+                      LoadingView()
                     else if (reviews.isEmpty)
                       EmptyView(
                         icon: Icons.star_border_rounded,
@@ -114,7 +114,7 @@ class _AverageCard extends StatelessWidget {
         children: [
           Text(
             average.toStringAsFixed(1),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.w700,
               letterSpacing: -1.5,

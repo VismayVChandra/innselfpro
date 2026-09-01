@@ -141,7 +141,7 @@ class SectionHeading extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 12),
                 child: Text(
                   actionLabel!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primary,

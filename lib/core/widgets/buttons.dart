@@ -14,8 +14,8 @@ class PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.icon = Icons.arrow_forward,
     this.margin = const EdgeInsets.symmetric(horizontal: kGutter),
-    this.color = AppColors.primary,
-    this.foreground = AppColors.primaryForeground,
+    this.color,
+    this.foreground,
   });
 
   final String label;
@@ -23,12 +23,18 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
   final EdgeInsets margin;
-  final Color color;
-  final Color foreground;
+
+  /// Null means AppColors.primary/primaryForeground -- can't be the
+  /// default value directly, since that's no longer a compile-time
+  /// constant.
+  final Color? color;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
+    final resolvedColor = color ?? AppColors.primary;
+    final resolvedForeground = foreground ?? AppColors.primaryForeground;
     return Padding(
       padding: margin,
       child: SizedBox(
@@ -36,8 +42,8 @@ class PrimaryButton extends StatelessWidget {
         child: FilledButton(
           onPressed: enabled ? onPressed : null,
           style: FilledButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: foreground,
+            backgroundColor: resolvedColor,
+            foregroundColor: resolvedForeground,
             disabledBackgroundColor: AppColors.muted,
             disabledForegroundColor: AppColors.mutedForeground,
             minimumSize: const Size(0, 54),
@@ -52,7 +58,7 @@ class PrimaryButton extends StatelessWidget {
                   width: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: foreground,
+                    color: resolvedForeground,
                   ),
                 )
               : Row(
@@ -80,7 +86,7 @@ class OutlineButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.isLoading = false,
-    this.color = AppColors.primary,
+    this.color,
     this.margin = const EdgeInsets.symmetric(horizontal: kGutter),
   });
 
@@ -88,11 +94,15 @@ class OutlineButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool isLoading;
-  final Color color;
+
+  /// Null means AppColors.primary -- see PrimaryButton's [color] for why
+  /// this can't be a default parameter value any more.
+  final Color? color;
   final EdgeInsets margin;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedColor = color ?? AppColors.primary;
     return Padding(
       padding: margin,
       child: SizedBox(
@@ -100,8 +110,8 @@ class OutlineButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            foregroundColor: color,
-            side: BorderSide(color: color.withValues(alpha: 0.6)),
+            foregroundColor: resolvedColor,
+            side: BorderSide(color: resolvedColor.withValues(alpha: 0.6)),
             minimumSize: const Size(0, 50),
             textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             shape: RoundedRectangleBorder(
@@ -112,7 +122,7 @@ class OutlineButton extends StatelessWidget {
               ? SizedBox(
                   height: 18,
                   width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: resolvedColor),
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -156,7 +166,7 @@ class CircleIconButton extends StatelessWidget {
         height: 44,
         child: Material(
           color: AppColors.card,
-          shape: const CircleBorder(
+          shape: CircleBorder(
             side: BorderSide(color: AppColors.border),
           ),
           clipBehavior: Clip.antiAlias,

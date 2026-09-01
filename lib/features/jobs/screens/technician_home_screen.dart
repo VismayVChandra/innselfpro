@@ -209,13 +209,13 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenHeader(
+              ScreenHeader(
                 eyebrow: 'TECHNICIAN MODE',
                 title: 'Job feed',
                 action: NotificationBell(),
               ),
               if (_initializing)
-                const LoadingView(height: 300)
+                LoadingView(height: 300)
               else if (_initError != null)
                 ErrorView(
                   message: 'Could not load the feed: $_initError',
@@ -237,7 +237,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                       );
                     }
                     if (!snapshot.hasData) {
-                      return const LoadingView(height: 300);
+                      return LoadingView(height: 300);
                     }
                     final namesById = _categoryNamesById;
                     final all = snapshot.data!;
@@ -434,7 +434,7 @@ class _AreaPanel extends StatelessWidget {
                 : hasLocation
                     ? 'YOU ARE VISIBLE WITHIN'
                     : 'NO SERVICE RADIUS SET',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.onPanelKicker,
               fontSize: 9,
               fontWeight: FontWeight.w700,
@@ -464,7 +464,7 @@ class _AreaPanel extends StatelessWidget {
                 : jobCount == 0
                     ? 'Nothing open right now. New requests will appear live.'
                     : '$jobCount open request${jobCount == 1 ? '' : 's'} waiting for a bid.',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.onPanelMuted,
               fontSize: 11.5,
               height: 1.5,
@@ -491,7 +491,7 @@ class _RadiusControl extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: kGutter),
       child: Row(
         children: [
-          const Icon(Icons.radar_outlined, size: 16, color: AppColors.mutedForeground),
+          Icon(Icons.radar_outlined, size: 16, color: AppColors.mutedForeground),
           const SizedBox(width: 8),
           Expanded(
             child: SliderTheme(

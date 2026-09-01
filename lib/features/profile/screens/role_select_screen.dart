@@ -24,13 +24,13 @@ class RoleSelectScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(kTextGutter, 0, kTextGutter, 26),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(kTextGutter, 0, kTextGutter, 26),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('ONE LAST THING', style: AppText.eyebrow),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text('How will you\nuse InnSelf?', style: AppText.display),
                   ],
                 ),
@@ -129,7 +129,7 @@ class _RoleCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.foreground,
@@ -138,7 +138,7 @@ class _RoleCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.north_east,
                 size: 18,
                 color: AppColors.mutedForeground,

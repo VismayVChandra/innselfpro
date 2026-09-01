@@ -64,8 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const BrandMark(),
                 const SizedBox(height: 26),
-                const DarkPanel(
-                  padding: EdgeInsets.all(24),
+                DarkPanel(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -102,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const FieldLabel('Email address', topPadding: 30),
+                FieldLabel('Email address', topPadding: 30),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'you@example.com',
                       prefixIcon: Icon(
                         Icons.mail_outline_rounded,
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         : null,
                   ),
                 ),
-                const FieldLabel('Password', topPadding: 20),
+                FieldLabel('Password', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: AppText.body.copyWith(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'At least 6 characters',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outline_rounded,
                         size: 20,
                         color: AppColors.mutedForeground,
@@ -219,7 +219,7 @@ class BrandMark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 11),
-        const Text(
+        Text(
           'InnSelf',
           style: TextStyle(
             fontSize: 22,

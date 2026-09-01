@@ -78,7 +78,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TopBar(eyebrow: 'ACCOUNT', title: 'Saved addresses'),
+              TopBar(eyebrow: 'ACCOUNT', title: 'Saved addresses'),
               FutureBuilder<List<CustomerAddress>>(
                 future: _future,
                 builder: (context, snapshot) {
@@ -89,14 +89,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     );
                   }
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const LoadingView();
+                    return LoadingView();
                   }
                   final addresses = snapshot.data!;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (addresses.isEmpty)
-                        const EmptyView(
+                        EmptyView(
                           icon: Icons.location_on_outlined,
                           title: 'No saved addresses yet',
                           message: 'Add one so you never retype it when posting a job.',
@@ -294,7 +294,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(kGutter, 20, kGutter, 24),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),

@@ -858,7 +858,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 _JobPhotos(urls: _job.photoUrls),
               ],
               if (_job.completionPhotoUrl != null) ...[
-                const SectionHeading(title: 'Completion photo', topPadding: 20),
+                SectionHeading(title: 'Completion photo', topPadding: 20),
                 _JobPhoto(url: _job.completionPhotoUrl!),
               ],
               if (_isTechnician && _job.status == 'open')
@@ -887,7 +887,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       future: _myBidFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView(height: 160);
+          return LoadingView(height: 160);
         }
         final myBid = snapshot.data;
 
@@ -903,7 +903,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     padding: const EdgeInsets.all(17),
                     child: Row(
                       children: [
-                        const SoftIcon(
+                        SoftIcon(
                           Icons.check_circle_outline,
                           background: AppColors.successSurface,
                           foreground: AppColors.success,
@@ -1120,7 +1120,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 padding: const EdgeInsets.all(17),
                 child: Row(
                   children: [
-                    const SoftIcon(
+                    SoftIcon(
                       Icons.workspace_premium_outlined,
                       size: 42,
                       iconSize: 21,
@@ -1293,7 +1293,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return ErrorView(message: 'Could not load bids: ${snapshot.error}');
         }
         if (!snapshot.hasData) {
-          return const LoadingView(height: 160);
+          return LoadingView(height: 160);
         }
         final bids = snapshot.data!;
         return Column(
@@ -1310,8 +1310,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ),
               ),
             if (bids.isEmpty) ...[
-              const SectionHeading(title: 'Bids received', topPadding: 28),
-              const EmptyView(
+              SectionHeading(title: 'Bids received', topPadding: 28),
+              EmptyView(
                 icon: Icons.hourglass_empty_rounded,
                 title: 'No bids yet',
                 message:
@@ -1378,7 +1378,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView(height: 140);
+          return LoadingView(height: 140);
         }
         final payment = snapshot.data;
         if (payment?.status == 'paid') {
@@ -1398,7 +1398,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionHeading(title: 'Payment', topPadding: 28),
+            SectionHeading(title: 'Payment', topPadding: 28),
             AppCard(
               radius: 21,
               padding: const EdgeInsets.all(17),
@@ -1446,7 +1446,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return ErrorView(message: 'Could not load review: ${snapshot.error}');
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView(height: 140);
+          return LoadingView(height: 140);
         }
         final review = snapshot.data;
         if (review != null) {
@@ -1508,7 +1508,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return ErrorView(message: 'Could not load review: ${snapshot.error}');
         }
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingView(height: 140);
+          return LoadingView(height: 140);
         }
         final review = snapshot.data;
         if (review != null) {
@@ -1667,7 +1667,7 @@ class _StatusPanel extends StatelessWidget {
               ),
               Text(
                 formatShortDate(job.createdAt),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.onPanelFaint,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w500,
@@ -1692,7 +1692,7 @@ class _StatusPanel extends StatelessWidget {
                 : isFinished
                     ? 'Thanks for using InnSelf.'
                     : 'We will keep this updated as things move along.',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.onPanelMuted,
               fontSize: 11.5,
               height: 1.5,
@@ -1706,7 +1706,7 @@ class _StatusPanel extends StatelessWidget {
                 value: status.progress / 100,
                 minHeight: 5,
                 backgroundColor: Colors.white.withValues(alpha: 0.16),
-                valueColor: const AlwaysStoppedAnimation(AppColors.peach),
+                valueColor: AlwaysStoppedAnimation(AppColors.peach),
               ),
             ),
           ],
@@ -1818,7 +1818,7 @@ class _TimelineRow extends StatelessWidget {
                   ),
                   if (current) ...[
                     const SizedBox(height: 3),
-                    const Text(
+                    Text(
                       'Current status',
                       style: TextStyle(
                         fontSize: 10.5,
@@ -1832,8 +1832,8 @@ class _TimelineRow extends StatelessWidget {
             ),
           ),
           if (done)
-            const Padding(
-              padding: EdgeInsets.only(top: 7),
+            Padding(
+              padding: const EdgeInsets.only(top: 7),
               child: Icon(
                 Icons.check_circle,
                 size: 17,
@@ -2089,15 +2089,18 @@ class _NoticeCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
-    this.background = AppColors.secondary,
-    this.foreground = AppColors.accentForeground,
+    this.background,
+    this.foreground,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final Color background;
-  final Color foreground;
+
+  /// Null means AppColors.secondary/accentForeground -- can't be a
+  /// default parameter value any more.
+  final Color? background;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -2109,8 +2112,8 @@ class _NoticeCard extends StatelessWidget {
         children: [
           SoftIcon(
             icon,
-            background: background,
-            foreground: foreground,
+            background: background ?? AppColors.secondary,
+            foreground: foreground ?? AppColors.accentForeground,
             size: 42,
             iconSize: 21,
           ),
@@ -2149,7 +2152,7 @@ class _CompletionCodeCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'GIVE THIS CODE TO YOUR TECHNICIAN WHEN THE WORK IS DONE',
               style: TextStyle(
                 color: AppColors.onPanelFaint,
@@ -2196,20 +2199,20 @@ class _CustomerRatingPreview extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            const SoftIcon(Icons.person_outline_rounded, size: 40, iconSize: 19),
+            SoftIcon(Icons.person_outline_rounded, size: 40, iconSize: 19),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ABOUT THIS CUSTOMER', style: AppText.microLabel),
+                  Text('ABOUT THIS CUSTOMER', style: AppText.microLabel),
                   const SizedBox(height: 4),
                   if (rating == null)
                     Text('New on InnSelf -- no ratings yet', style: AppText.bodyMuted)
                   else
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                        Icon(Icons.star_rounded, size: 14, color: AppColors.star),
                         const SizedBox(width: 4),
                         Text(
                           '${rating!.average.toStringAsFixed(1)} from ${rating!.count} '
@@ -2271,12 +2274,12 @@ class _ContactCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.flag_outlined, color: AppColors.destructive),
+              leading: Icon(Icons.flag_outlined, color: AppColors.destructive),
               title: const Text('Report'),
               onTap: () => Navigator.of(sheetContext).pop('report'),
             ),
             ListTile(
-              leading: const Icon(Icons.block_outlined, color: AppColors.destructive),
+              leading: Icon(Icons.block_outlined, color: AppColors.destructive),
               title: Text('Block ${profile.fullName}'),
               onTap: () => Navigator.of(sheetContext).pop('block'),
             ),
@@ -2385,7 +2388,7 @@ class _ContactCard extends StatelessWidget {
               ),
               child: Text(
                 initialsOf(profile.fullName),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.accentForeground,
@@ -2411,17 +2414,24 @@ class _ContactCard extends StatelessWidget {
                       ),
                       if (profile.isVerified) ...[
                         const SizedBox(width: 5),
-                        const VerifiedBadge(size: 15),
+                        VerifiedBadge(size: 15),
                       ],
                     ],
                   ),
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      Text(profile.phone, style: AppText.bodyMuted),
+                      Flexible(
+                        child: Text(
+                          profile.phone,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.bodyMuted,
+                        ),
+                      ),
                       if (reviewCount > 0) ...[
                         Text('  ·  ', style: AppText.bodyMuted),
-                        const Icon(Icons.star_rounded, size: 12, color: AppColors.star),
+                        Icon(Icons.star_rounded, size: 12, color: AppColors.star),
                         const SizedBox(width: 2),
                         Text(
                           rating!.toStringAsFixed(1),
@@ -2543,7 +2553,7 @@ class _BoostedChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.trending_up_rounded, size: 10, color: AppColors.primary),
+          Icon(Icons.trending_up_rounded, size: 10, color: AppColors.primary),
           const SizedBox(width: 2),
           Text(
             'BOOSTED',
@@ -2635,7 +2645,7 @@ class _BidCard extends StatelessWidget {
                                 ),
                                 if (bid.technicianIsVerified) ...[
                                   const SizedBox(width: 5),
-                                  const VerifiedBadge(size: 14),
+                                  VerifiedBadge(size: 14),
                                 ],
                                 if (bid.isBoosted) ...[
                                   const SizedBox(width: 5),
@@ -2647,7 +2657,7 @@ class _BidCard extends StatelessWidget {
                             Row(
                               children: [
                                 if (bid.technicianReviewCount > 0) ...[
-                                  const Icon(
+                                  Icon(
                                     Icons.star_rounded,
                                     size: 13,
                                     color: AppColors.star,
@@ -2693,7 +2703,7 @@ class _BidCard extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('QUOTE', style: AppText.microLabel),
+                          Text('QUOTE', style: AppText.microLabel),
                           const SizedBox(height: 4),
                           Text(formatRupees(bid.amount), style: AppText.amount),
                         ],
@@ -2750,7 +2760,7 @@ class _BidCard extends StatelessWidget {
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.only(
                       topRight: Radius.circular(20),

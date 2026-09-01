@@ -54,19 +54,19 @@ class _PointsScreenState extends State<PointsScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const TopBar(eyebrow: 'REWARDS', title: 'Points'),
+                    TopBar(eyebrow: 'REWARDS', title: 'Points'),
                     if (snapshot.hasError)
                       ErrorView(
                         message: 'Could not load points: ${snapshot.error}',
                         onRetry: _refresh,
                       )
                     else if (snapshot.connectionState != ConnectionState.done)
-                      const LoadingView()
+                      LoadingView()
                     else ...[
                       _BalancePanel(balance: snapshot.data!.$1),
-                      const SectionHeading(title: 'History'),
+                      SectionHeading(title: 'History'),
                       if (snapshot.data!.$2.isEmpty)
-                        const EmptyView(
+                        EmptyView(
                           icon: Icons.stars_outlined,
                           title: 'No points yet',
                           message:
@@ -99,7 +99,7 @@ class _BalancePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'YOUR BALANCE',
             style: TextStyle(
               color: AppColors.onPanelKicker,
@@ -119,7 +119,7 @@ class _BalancePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Spend points to boost a bid or job to the top of the list.',
             style: TextStyle(
               color: AppColors.onPanelMuted,

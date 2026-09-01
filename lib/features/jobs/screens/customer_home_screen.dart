@@ -139,7 +139,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
                     );
                   }
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const LoadingView(height: 260);
+                    return LoadingView(height: 260);
                   }
                   return _HomeBody(
                     data: snapshot.data!,
@@ -172,7 +172,7 @@ class _Hero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'HOME, HANDLED.',
             style: TextStyle(
               color: AppColors.onPanelKicker,
@@ -193,7 +193,7 @@ class _Hero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 11),
-          const SizedBox(
+          SizedBox(
             width: 230,
             child: Text(
               'Get trusted local pros competing for your job.',
@@ -212,8 +212,8 @@ class _Hero extends StatelessWidget {
             child: InkWell(
               onTap: onRequest,
               borderRadius: BorderRadius.circular(16),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -303,7 +303,7 @@ class _HomeBody extends StatelessWidget {
           onTap: () => onOpenTab(1),
           child: Row(
             children: [
-              const SoftIcon(
+              SoftIcon(
                 Icons.verified_user_outlined,
                 background: AppColors.successSurface,
                 foreground: AppColors.success,
@@ -327,7 +327,7 @@ class _HomeBody extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 19,
                 color: AppColors.mutedForeground,
@@ -364,13 +364,13 @@ class _ActiveJobCard extends StatelessWidget {
                   Container(
                     width: 7,
                     height: 7,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: 7),
-                  const Text(
+                  Text(
                     'ACTIVE JOB',
                     style: TextStyle(
                       fontSize: 10,
@@ -381,7 +381,7 @@ class _ActiveJobCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Icon(
+              Icon(
                 Icons.north_east,
                 size: 17,
                 color: AppColors.mutedForeground,
@@ -391,7 +391,7 @@ class _ActiveJobCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             job.categoryName,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w700,
               color: AppColors.foreground,
@@ -414,11 +414,11 @@ class _ActiveJobCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('STATUS', style: AppText.microLabel),
+                  Text('STATUS', style: AppText.microLabel),
                   const SizedBox(height: 3),
                   Text(
                     status.customerLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.foreground,
@@ -436,7 +436,7 @@ class _ActiveJobCard extends StatelessWidget {
                       value: status.progress / 100,
                       minHeight: 5,
                       backgroundColor: AppColors.muted,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
                     ),
                   ),
                 ),
@@ -471,7 +471,7 @@ class _BidsBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          const SoftIcon(
+          SoftIcon(
             Icons.sell_outlined,
             background: Color(0xFFD7EEE5),
             size: 38,
@@ -502,7 +502,7 @@ class _BidsBanner extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
+          Icon(
             Icons.arrow_forward,
             size: 18,
             color: AppColors.accentForeground,

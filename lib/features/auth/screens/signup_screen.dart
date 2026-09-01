@@ -75,11 +75,11 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const TopBar(
+                TopBar(
                   eyebrow: 'GET STARTED',
                   title: 'Create your account',
                 ),
-                const FieldLabel('Email address', topPadding: 12),
+                FieldLabel('Email address', topPadding: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -87,7 +87,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     style: AppText.body.copyWith(fontSize: 13),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'you@example.com',
                       prefixIcon: Icon(
                         Icons.mail_outline_rounded,
@@ -100,7 +100,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         : null,
                   ),
                 ),
-                const FieldLabel('Password', topPadding: 20),
+                FieldLabel('Password', topPadding: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: kGutter),
                   child: TextFormField(
@@ -109,7 +109,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: AppText.body.copyWith(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'At least 6 characters',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outline_rounded,
                         size: 20,
                         color: AppColors.mutedForeground,
