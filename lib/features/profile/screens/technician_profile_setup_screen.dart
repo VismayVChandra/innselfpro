@@ -132,25 +132,36 @@ class _TechnicianProfileSetupScreenState
     }
     setState(() => _isLoading = true);
     try {
-      final profile = await _profileRepository.createProfile(
+      // Independent of each other -- run together. Everything below
+      // does have to wait for both: technician_details/skills/kyc all
+      // carry a profile_id foreign key, and kyc also needs the
+      // uploaded document's path.
+      final profileFuture = _profileRepository.createProfile(
         role: 'technician',
         fullName: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
       );
-      final documentPath =
-          await _profileRepository.uploadKycDocument(_kycDocument!);
-      await _profileRepository.upsertTechnicianDetails(
+      final documentPathFuture =
+          _profileRepository.uploadKycDocument(_kycDocument!);
+      final profile = await profileFuture;
+      final documentPath = await documentPathFuture;
+
+      final detailsFuture = _profileRepository.upsertTechnicianDetails(
         baseLat: _baseLat,
         baseLng: _baseLng,
         serviceRadiusKm: _radiusKm,
       );
-      await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
-      await _profileRepository.upsertTechnicianKyc(
+      final skillsFuture =
+          _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
+      final kycFuture = _profileRepository.upsertTechnicianKyc(
         documentType: _documentType!,
         idNumber: _idNumberController.text.trim(),
         documentPath: documentPath,
       );
+      await detailsFuture;
+      await skillsFuture;
+      await kycFuture;
       if (!mounted) return;
       widget.onProfileCreated(profile);
       Navigator.of(context).pop();

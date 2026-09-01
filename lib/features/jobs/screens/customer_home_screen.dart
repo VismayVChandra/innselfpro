@@ -64,8 +64,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
   void onRefreshSignal() => setState(() => _future = _load());
 
   Future<_HomeData> _load() async {
-    final jobs = await _jobsRepository.fetchMyJobs();
-    final categories = await _jobsRepository.fetchCategories();
+    final jobsFuture = _jobsRepository.fetchMyJobs();
+    final categoriesFuture = _jobsRepository.fetchCategories();
+    final jobs = await jobsFuture;
+    final categories = await categoriesFuture;
     final openJobIds =
         jobs.where((j) => j.status == 'open').map((j) => j.id).toList();
     final bidCounts = await _bidsRepository.fetchBidCounts(openJobIds);

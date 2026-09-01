@@ -71,9 +71,12 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
 
   Future<void> _init() async {
     try {
-      final categories = await _jobsRepository.fetchCategories();
-      final details = await _profileRepository.fetchMyTechnicianDetails();
-      final skillIds = await _profileRepository.fetchMySkillCategoryIds();
+      final categoriesFuture = _jobsRepository.fetchCategories();
+      final detailsFuture = _profileRepository.fetchMyTechnicianDetails();
+      final skillIdsFuture = _profileRepository.fetchMySkillCategoryIds();
+      final categories = await categoriesFuture;
+      final details = await detailsFuture;
+      final skillIds = await skillIdsFuture;
       if (!mounted) return;
       setState(() {
         _categories = categories;

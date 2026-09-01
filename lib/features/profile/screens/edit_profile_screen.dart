@@ -69,13 +69,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadTechnicianDetails() async {
     try {
+      final categoriesFuture = JobsRepository().fetchCategories();
+      final detailsFuture = _profileRepository.fetchMyTechnicianDetails();
+      final skillIdsFuture = _profileRepository.fetchMySkillCategoryIds();
       // Top-level only -- see technician_profile_setup_screen.dart's
       // _categoriesFuture for why skills stay at the category level.
-      final categories = (await JobsRepository().fetchCategories())
-          .where((c) => c.isTopLevel)
-          .toList();
-      final details = await _profileRepository.fetchMyTechnicianDetails();
-      final skillIds = await _profileRepository.fetchMySkillCategoryIds();
+      final categories =
+          (await categoriesFuture).where((c) => c.isTopLevel).toList();
+      final details = await detailsFuture;
+      final skillIds = await skillIdsFuture;
       if (!mounted) return;
       setState(() {
         _categories = categories;
@@ -145,19 +147,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     setState(() => _isSaving = true);
     try {
-      final updated = await _profileRepository.updateProfile(
+      // This is an update to an already-existing profile row, so these
+      // writes don't have the create flow's foreign-key ordering
+      // concern (see technician_profile_setup_screen.dart) -- safe to
+      // fire together.
+      final updatedFuture = _profileRepository.updateProfile(
         fullName: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
       );
-      if (_isTechnician) {
-        await _profileRepository.upsertTechnicianDetails(
-          baseLat: _baseLat,
-          baseLng: _baseLng,
-          serviceRadiusKm: _radiusKm,
-        );
-        await _profileRepository.setMySkillCategories(_selectedSkillCategoryIds);
-      }
+      final detailsFuture = _isTechnician
+          ? _profileRepository.upsertTechnicianDetails(
+              baseLat: _baseLat,
+              baseLng: _baseLng,
+              serviceRadiusKm: _radiusKm,
+            )
+          : null;
+      final skillsFuture = _isTechnician
+          ? _profileRepository.setMySkillCategories(_selectedSkillCategoryIds)
+          : null;
+      final updated = await updatedFuture;
+      await detailsFuture;
+      await skillsFuture;
       if (!mounted) return;
       widget.onSaved(updated);
       Navigator.of(context).pop();

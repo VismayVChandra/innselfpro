@@ -369,17 +369,23 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<({Profile profile, double? rating, int reviewCount})?> _loadTechnicianContact() async {
     final technicianId =
         await _bidsRepository.fetchTechnicianIdForBid(_job.acceptedBidId!);
-    final profile = await _profileRepository.fetchProfileById(technicianId);
+    // profile and ratings both only depend on technicianId, not on each
+    // other -- fire both once it's known instead of waiting in turn.
+    final profileFuture = _profileRepository.fetchProfileById(technicianId);
+    final ratingsFuture = _bidsRepository.fetchTechnicianRatings([technicianId]);
+    final profile = await profileFuture;
     if (profile == null) return null;
-    final ratings = await _bidsRepository.fetchTechnicianRatings([technicianId]);
+    final ratings = await ratingsFuture;
     final rating = ratings[technicianId];
     return (profile: profile, rating: rating?.average, reviewCount: rating?.count ?? 0);
   }
 
   Future<({Profile profile, double? rating, int reviewCount})?> _loadCustomerContact() async {
-    final profile = await _profileRepository.fetchProfileById(_job.customerId);
+    final profileFuture = _profileRepository.fetchProfileById(_job.customerId);
+    final ratingFuture = _reviewsRepository.fetchCustomerRating(_job.customerId);
+    final profile = await profileFuture;
     if (profile == null) return null;
-    final rating = await _reviewsRepository.fetchCustomerRating(_job.customerId);
+    final rating = await ratingFuture;
     return (
       profile: profile,
       rating: rating?.average,

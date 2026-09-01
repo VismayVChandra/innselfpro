@@ -85,18 +85,30 @@ class _TechnicianProfileScreenState extends State<TechnicianProfileScreen> {
   }
 
   Future<_TechnicianSummary> _load() async {
-    final payments = await PaymentsRepository().fetchMyEarnings();
-    final reviews = await ReviewsRepository().fetchReviewsForTechnician();
-    final details = await ProfileRepository().fetchMyTechnicianDetails();
-    final unread = await NotificationsRepository().fetchUnreadCount();
-    final skillIds = await ProfileRepository().fetchMySkillCategoryIds();
-    final categories = await JobsRepository().fetchCategories();
+    // Independent reads -- start every request before awaiting any of
+    // them, so the eight round trips overlap instead of stacking.
+    final paymentsFuture = PaymentsRepository().fetchMyEarnings();
+    final reviewsFuture = ReviewsRepository().fetchReviewsForTechnician();
+    final detailsFuture = ProfileRepository().fetchMyTechnicianDetails();
+    final unreadFuture = NotificationsRepository().fetchUnreadCount();
+    final skillIdsFuture = ProfileRepository().fetchMySkillCategoryIds();
+    final categoriesFuture = JobsRepository().fetchCategories();
+    final kycFuture = ProfileRepository().fetchMyKyc();
+    final isAdminFuture = AdminRepository().amIAdmin();
+
+    final payments = await paymentsFuture;
+    final reviews = await reviewsFuture;
+    final details = await detailsFuture;
+    final unread = await unreadFuture;
+    final skillIds = await skillIdsFuture;
+    final categories = await categoriesFuture;
+    final kyc = await kycFuture;
+    final isAdmin = await isAdminFuture;
+
     final skillNames = categories
         .where((c) => skillIds.contains(c.id))
         .map((c) => c.name)
         .toList();
-    final kyc = await ProfileRepository().fetchMyKyc();
-    final isAdmin = await AdminRepository().amIAdmin();
     return _TechnicianSummary(
       payments: payments,
       reviews: reviews,

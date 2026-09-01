@@ -27,9 +27,9 @@ class _PointsScreenState extends State<PointsScreen> {
   }
 
   Future<(int, List<PointsTransaction>)> _load() async {
-    final balance = await _repository.fetchBalance();
-    final history = await _repository.fetchHistory();
-    return (balance, history);
+    final balanceFuture = _repository.fetchBalance();
+    final historyFuture = _repository.fetchHistory();
+    return (await balanceFuture, await historyFuture);
   }
 
   Future<void> _refresh() async {

@@ -44,8 +44,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (notification.jobId == null) return;
     setState(() => _openingJobId = notification.id);
     try {
-      final job = await _jobsRepository.fetchJobById(notification.jobId!);
-      final viewer = await _profileRepository.fetchMyProfile();
+      final jobFuture = _jobsRepository.fetchJobById(notification.jobId!);
+      final viewerFuture = _profileRepository.fetchMyProfile();
+      final job = await jobFuture;
+      final viewer = await viewerFuture;
       if (!mounted || viewer == null) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
