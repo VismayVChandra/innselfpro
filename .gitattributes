@@ -1,0 +1,5 @@
+# The Flutter web build output is machine-generated and rebuilt whole
+# each time -- never diff/merge it as text, and never let line-ending
+# conversion touch it (a CRLF rewrite would silently corrupt the .wasm
+# binaries if git's content-sniffing ever misjudged one).
+docs/app/** -text -diff linguist-generated
