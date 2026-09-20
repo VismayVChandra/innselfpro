@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -9,7 +10,15 @@ import 'features/notifications/push_notifications_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initSupabase();
-  await Firebase.initializeApp();
+  // Web has no google-services.json/GoogleService-Info.plist equivalent --
+  // Firebase.initializeApp() needs explicit FirebaseOptions there, which
+  // this app doesn't provide since push notifications are an Android-only
+  // feature for now. PushNotificationsService itself no-ops on web too,
+  // so skipping this here just means we don't crash on startup for
+  // nothing -- see that class for where the real guard lives.
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+  }
   await PushNotificationsService.instance.init(navigatorKey);
   await ThemeController.instance.init();
 
